@@ -2,7 +2,7 @@
   'use strict';
   const SC = window.SC = {};
   SC.COLS=7; SC.ROWS=7; SC.CELL_COUNT=49; SC.STORAGE_KEY='sweetCascadeDeluxeState.v2';
-  SC.BET_LEVELS=[10,20,50,100,200,500,1000,2000]; SC.MULT_STEPS=[2,3,5,10,25,50,100]; SC.PAYOUT_SCALE=2.35;
+  SC.BET_LEVELS=[10,20,50,100,200,500,1000,2000]; SC.MULT_STEPS=[2,3,5,10,25,50,100]; SC.PAYOUT_SCALE=2.35; SC.MAX_WIN_X=25000;
   SC.SYMBOLS={
     redBear:{name:'Малиновый мишка',weight:17,color:'#ff355f',pay:[0,0,0,0,0,.55,.75,1,1.35,1.75,2.3,3.1,4.3,5.8,7.6,10]},
     purpleBear:{name:'Черничный мишка',weight:16,color:'#8124df',pay:[0,0,0,0,0,.48,.66,.9,1.2,1.6,2.1,2.85,3.8,5,6.7,8.5]},
@@ -15,8 +15,8 @@
   SC.SYMBOL_KEYS=Object.keys(SC.SYMBOLS); SC.PAY_KEYS=SC.SYMBOL_KEYS.filter(k=>!SC.SYMBOLS[k].scatter);
   SC.defaultState=()=>({credits:10000,betIndex:3,sound:true,turbo:false,freeSpins:0,lastWin:0,totalSpins:0});
   SC.loadState=()=>{try{return {...SC.defaultState(),...(JSON.parse(localStorage.getItem(SC.STORAGE_KEY)||'null')||{})};}catch{return SC.defaultState();}};
-  SC.state=SC.loadState(); SC.grid=[]; SC.multiplierMap=Array(SC.CELL_COUNT).fill(0); SC.busy=false; SC.autoRemaining=0; SC.audioCtx=null;
-  SC.saveState=()=>localStorage.setItem(SC.STORAGE_KEY,JSON.stringify(SC.state));
+  SC.state=SC.loadState(); SC.grid=[]; SC.multiplierMap=Array.isArray(SC.state.multiplierMap)&&SC.state.multiplierMap.length===SC.CELL_COUNT?SC.state.multiplierMap:Array(SC.CELL_COUNT).fill(0); delete SC.state.multiplierMap; SC.busy=false; SC.autoRemaining=0; SC.audioCtx=null;
+  SC.saveState=()=>localStorage.setItem(SC.STORAGE_KEY,JSON.stringify({...SC.state,multiplierMap:SC.multiplierMap}));
   SC.rub=v=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:v%1?2:0}).format(v);
   SC.bet=()=>SC.BET_LEVELS[SC.state.betIndex];
   SC.delay=ms=>new Promise(r=>setTimeout(r,SC.state.turbo?Math.max(35,ms*.34):ms));
