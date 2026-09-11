@@ -42,16 +42,11 @@
           <span class="price" id="superPrice">25 000 ₽</span>
           <small>множители уже на поле</small>
         </button>
-        <button class="mini-card" id="paytableBtn">
-          <span>🍬</span><strong>ТАБЛИЦА ВЫПЛАТ</strong>
-        </button>
+        <button class="mini-card" id="paytableBtn"><span>🍬</span><strong>ТАБЛИЦА ВЫПЛАТ</strong></button>
       </aside>
 
       <section class="board-wrap" aria-label="Игровое поле">
-        <div class="board-topline">
-          <span id="roundLabel">ОСНОВНАЯ ИГРА</span>
-          <span id="cascadeLabel">ГОТОВО</span>
-        </div>
+        <div class="board-topline"><span id="roundLabel">ОСНОВНАЯ ИГРА</span><span id="cascadeLabel">ГОТОВО</span></div>
         <div class="board-frame">
           <div id="grid" class="slot-grid" role="grid" aria-label="Сетка 7 на 7"></div>
           <div id="winOverlay" class="win-overlay" aria-live="polite"></div>
@@ -60,43 +55,20 @@
       </section>
 
       <aside class="side-panel right-panel">
-        <div class="info-card free-info">
-          <span class="info-icon gumball">●</span>
-          <div><strong>ФРИСПИНЫ</strong><small>Множители сохраняются между вращениями</small></div>
-        </div>
+        <div class="info-card free-info"><span class="info-icon gumball">●</span><div><strong>ФРИСПИНЫ</strong><small>Множители сохраняются между вращениями</small></div></div>
         <div class="info-card">
           <strong>ОСОБЕННОСТИ</strong>
-          <ul>
-            <li><span>⭐</span> Каскадные выигрыши</li>
-            <li><span>✕</span> Множители до ×100</li>
-            <li><span>🎁</span> 3+ бонусов запускают фриспины</li>
-            <li><span>⚡</span> Турбо-режим</li>
-          </ul>
+          <ul><li><span>⭐</span> Каскадные выигрыши</li><li><span>✕</span> Множители до ×100</li><li><span>🎁</span> 3+ бонусов запускают фриспины</li><li><span>⚡</span> Сладкий шторм</li></ul>
         </div>
-        <div class="stats-card">
-          <div><span>Фриспины</span><strong id="freeSpinsValue">0</strong></div>
-          <div><span>Последний выигрыш</span><strong id="lastWinValue">0 ₽</strong></div>
-        </div>
+        <div class="stats-card"><div><span>Фриспины</span><strong id="freeSpinsValue">0</strong></div><div><span>Последний выигрыш</span><strong id="lastWinValue">0 ₽</strong></div></div>
       </aside>
     </section>
 
     <footer class="control-bar">
-      <div class="wallet">
-        <span>БАЛАНС</span><strong id="creditsValue">10 000 ₽</strong>
-        <small>виртуальные кредиты</small>
-      </div>
-      <div class="bet-control">
-        <button id="betMinus" aria-label="Уменьшить ставку">−</button>
-        <div><span>СТАВКА</span><strong id="betValue">100 ₽</strong></div>
-        <button id="betPlus" aria-label="Увеличить ставку">+</button>
-      </div>
+      <div class="wallet"><span>БАЛАНС</span><strong id="creditsValue">10 000 ₽</strong><small>виртуальные кредиты</small></div>
+      <div class="bet-control"><button id="betMinus" aria-label="Уменьшить ставку">−</button><div><span>СТАВКА</span><strong id="betValue">100 ₽</strong></div><button id="betPlus" aria-label="Увеличить ставку">+</button></div>
       <button class="spin-button" id="spinBtn" aria-label="Вращать"><span class="spin-arrows">↻</span><small id="spinCaption">КРУТИТЬ</small></button>
-      <div class="control-actions">
-        <button id="autoBtn"><span>⟳</span><small>АВТО ×20</small></button>
-        <button id="turboBtn"><span>⚡</span><small>ТУРБО</small></button>
-        <button id="soundBtn"><span id="soundIcon">🔊</span><small>ЗВУК</small></button>
-        <button id="resetBtn"><span>↺</span><small>СБРОС</small></button>
-      </div>
+      <div class="control-actions"><button id="autoBtn"><span>⟳</span><small>АВТО ×20</small></button><button id="turboBtn"><span>⚡</span><small>ТУРБО</small></button><button id="soundBtn"><span id="soundIcon">🔊</span><small>ЗВУК</small></button><button id="resetBtn"><span>↺</span><small>СБРОС</small></button></div>
     </footer>
     <div class="legal-note">Демо-режим: баланс виртуальный, вывод средств отсутствует. Состояние игры хранится только в вашем браузере.</div>
   </main>
@@ -107,13 +79,16 @@
       <h2>Таблица выплат</h2>
       <p>Выигрывают группы из 5 и более одинаковых символов, соприкасающихся по вертикали или горизонтали. После выигрыша символы исчезают, новые падают сверху, и начинается каскад.</p>
       <div id="paytableList" class="paytable-list"></div>
-      <div class="rules-box"><strong>Множители клеток</strong><p>После выигрышного каскада часть очищенных клеток получает множитель. Если следующий кластер проходит через такую клетку, множитель прибавляется к выигрышу. В основной игре множители живут до конца текущего вращения, а во фриспинах сохраняются между вращениями и могут расти.</p></div>
+      <div class="rules-box"><strong>Комбо каскадов</strong><p>Каждый следующий каскад одного вращения усиливает выплату: ×1, ×1.20, ×1.45, ×1.75 и далее до ×3. На 3-м и 6-м каскаде срабатывает «Сладкий взрыв» и добавляет новые множители.</p></div>
+      <div class="rules-box"><strong>Множители клеток</strong><p>После выигрышного каскада часть очищенных клеток получает множитель. Если следующий кластер проходит через такую клетку, множители суммируются. Во фриспинах они сохраняются между вращениями и могут расти до ×100.</p></div>
+      <div class="rules-box"><strong>Сладкий шторм</strong><p>Обычные вращения заряжают шкалу. При 100% следующее обычное вращение начинается с шести усиленных клеток-множителей.</p></div>
       <div class="rules-box"><strong>Бонус</strong><p>3 бонусных автомата дают 8 фриспинов, 4 — 10, 5 и более — 12. Повторное выпадение 3+ бонусов во фриспинах добавляет дополнительные вращения.</p></div>
     </form>
   </dialog>
 
   <script src="game-state.js"></script>
   <script src="game-visuals.js"></script>
+  <script src="game-juice.js"></script>
   <script src="game-engine.js"></script>
   <script src="game-spin.js"></script>
   <script src="game.js"></script>
