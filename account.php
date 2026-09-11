@@ -14,6 +14,7 @@ site_head('Аккаунт — CandyClub');echo '<body class="cc-site">';site_nav
       <h2><?=e($user['username'])?></h2><p><?=e($user['email'])?></p>
       <div class="cc-big-balance"><small>Виртуальный игровой баланс</small><strong><?=e(money_rub((int)$user['balance_kopecks']))?></strong></div>
       <a class="cc-btn cc-btn-primary" style="width:100%;margin-top:14px" href="game.php">Играть в Сладкий каскад</a>
+      <form action="logout.php" method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><button class="cc-btn" style="width:100%;margin-top:9px" type="submit">Выйти из аккаунта</button></form>
       <p style="font-size:11px;margin-top:16px">Баланс предназначен только для игры внутри платформы и не является денежным счётом.</p>
     </aside>
     <section class="cc-history">
