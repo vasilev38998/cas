@@ -1,1 +1,4 @@
-body{margin:0;background:#8fd9ff;color:#fff;font-family:system-ui,sans-serif}
+@import url('theme.css');
+@import url('board.css');
+@import url('controls.css');
+@import url('responsive.css');
