@@ -57,6 +57,14 @@ try {
 function db(): PDO { global $pdo; return $pdo; }
 function app_config(): array { global $config; return $config; }
 function e(string $value): string { return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+
+function asset_url(string $path): string {
+    $clean = ltrim($path, '/');
+    $file = dirname(__DIR__) . '/' . $clean;
+    $version = is_file($file) ? (string)filemtime($file) : '1';
+    return e($clean . '?v=' . rawurlencode($version));
+}
+
 function csrf_token(): string {
     if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(24));
     return $_SESSION['csrf'];
@@ -100,10 +108,39 @@ function require_login(bool $api = false): array {
     header('Location: login.php');
     exit;
 }
+function is_admin(?array $user = null): bool {
+    $user = $user ?: current_user();
+    if (!$user) return false;
+    $app = app_config()['app'] ?? [];
+    $names = $app['admin_usernames'] ?? [];
+    $emails = $app['admin_emails'] ?? [];
+    if (!is_array($names)) $names = [];
+    if (!is_array($emails)) $emails = [];
+    return in_array((string)$user['username'], $names, true) || in_array((string)$user['email'], $emails, true);
+}
+function require_admin(): array {
+    $user = require_login();
+    if (!is_admin($user)) {
+        http_response_code(403);
+        exit('Доступ запрещён.');
+    }
+    return $user;
+}
 function money_rub(int $kopecks): string {
     return number_format($kopecks / 100, 2, ',', ' ') . ' ₽';
 }
 function wallet_entry(PDO $pdo, int $userId, string $type, int $amount, int $balanceAfter, ?string $reference = null, array $meta = []): void {
     $stmt = $pdo->prepare('INSERT INTO wallet_transactions (user_id,type,amount_kopecks,balance_after_kopecks,reference,metadata_json) VALUES (?,?,?,?,?,?)');
     $stmt->execute([$userId,$type,$amount,$balanceAfter,$reference,$meta ? json_encode($meta, JSON_UNESCAPED_UNICODE) : null]);
+}
+function player_progress(int $userId): array {
+    $stmt = db()->prepare("SELECT COALESCE(SUM(cost_kopecks),0) wagered,COUNT(*) rounds,COALESCE(MAX(win_kopecks),0) best_win FROM game_rounds WHERE user_id=?");
+    $stmt->execute([$userId]);
+    $r = $stmt->fetch() ?: ['wagered'=>0,'rounds'=>0,'best_win'=>0];
+    $xp = (int)floor(((int)$r['wagered']) / 1000);
+    $level = max(1, 1 + (int)floor(sqrt($xp / 120)));
+    $floor = (int)round(pow($level - 1, 2) * 120);
+    $ceil = (int)round(pow($level, 2) * 120);
+    $pct = $ceil > $floor ? max(0, min(100, ($xp - $floor) / ($ceil - $floor) * 100)) : 0;
+    return ['xp'=>$xp,'level'=>$level,'progress'=>$pct,'rounds'=>(int)$r['rounds'],'best_win'=>(int)$r['best_win'],'wagered'=>(int)$r['wagered']];
 }
