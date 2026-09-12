@@ -16,159 +16,45 @@ function sc_defs(): array {
         'orangeHeart' => ['weight'=>1800,'pay'=>[5=>.30,6=>.44,7=>.62,8=>.82,9=>1.08,10=>1.42,11=>1.88,12=>2.48,13=>3.25,14=>4.25,15=>5.5]],
         'pinkDrop'    => ['weight'=>2000,'pay'=>[5=>.24,6=>.36,7=>.5,8=>.68,9=>.9,10=>1.18,11=>1.55,12=>2.05,13=>2.7,14=>3.5,15=>4.5]],
         'violetBean'  => ['weight'=>2000,'pay'=>[5=>.22,6=>.32,7=>.46,8=>.62,9=>.82,10=>1.08,11=>1.42,12=>1.86,13=>2.42,14=>3.15,15=>4.1]],
-        'scatter'     => ['weight'=>115,'scatter'=>true],
+        'scatter'     => ['weight'=>75,'scatter'=>true],
     ];
 }
-
-function sc_random_symbol(): string {
-    $defs = sc_defs();
-    $total = array_sum(array_column($defs, 'weight'));
-    $roll = random_int(1, $total);
-    foreach ($defs as $key => $def) {
-        $roll -= $def['weight'];
-        if ($roll <= 0) return $key;
-    }
-    return 'pinkDrop';
-}
-
-function sc_random_grid(): array {
-    $grid = [];
-    for ($i=0; $i<SC_CELLS; $i++) $grid[] = sc_random_symbol();
-    return $grid;
-}
-
-function sc_neighbors(int $i): array {
-    $r = intdiv($i, SC_COLS); $c = $i % SC_COLS; $out = [];
-    if ($r > 0) $out[] = $i - SC_COLS;
-    if ($r < SC_ROWS - 1) $out[] = $i + SC_COLS;
-    if ($c > 0) $out[] = $i - 1;
-    if ($c < SC_COLS - 1) $out[] = $i + 1;
-    return $out;
-}
-
+function sc_random_symbol(): string {$defs=sc_defs();$total=array_sum(array_column($defs,'weight'));$roll=random_int(1,$total);foreach($defs as $key=>$def){$roll-=$def['weight'];if($roll<=0)return $key;}return 'pinkDrop';}
+function sc_random_grid(): array {$grid=[];for($i=0;$i<SC_CELLS;$i++)$grid[]=sc_random_symbol();return $grid;}
+function sc_neighbors(int $i): array {$r=intdiv($i,SC_COLS);$c=$i%SC_COLS;$out=[];if($r>0)$out[]=$i-SC_COLS;if($r<SC_ROWS-1)$out[]=$i+SC_COLS;if($c>0)$out[]=$i-1;if($c<SC_COLS-1)$out[]=$i+1;return $out;}
 function sc_find_clusters(array $grid): array {
-    $defs = sc_defs(); $seen = []; $wins = [];
-    for ($i=0; $i<SC_CELLS; $i++) {
-        if (isset($seen[$i]) || !empty($defs[$grid[$i]]['scatter'])) continue;
-        $type = $grid[$i]; $stack = [$i]; $cells = []; $seen[$i] = true;
-        while ($stack) {
-            $cur = array_pop($stack); $cells[] = $cur;
-            foreach (sc_neighbors($cur) as $n) {
-                if (!isset($seen[$n]) && $grid[$n] === $type) { $seen[$n] = true; $stack[] = $n; }
-            }
-        }
-        if (count($cells) >= 5) $wins[] = ['type'=>$type,'cells'=>$cells];
+    $defs=sc_defs();$seen=[];$wins=[];
+    for($i=0;$i<SC_CELLS;$i++){
+        if(isset($seen[$i])||!empty($defs[$grid[$i]]['scatter']))continue;
+        $type=$grid[$i];$stack=[$i];$cells=[];$seen[$i]=true;
+        while($stack){$cur=array_pop($stack);$cells[]=$cur;foreach(sc_neighbors($cur) as $n){if(!isset($seen[$n])&&$grid[$n]===$type){$seen[$n]=true;$stack[]=$n;}}}
+        if(count($cells)>=6)$wins[]=['type'=>$type,'cells'=>$cells];
     }
     return $wins;
 }
+function sc_pay_factor(string $type,int $count): float {$pay=sc_defs()[$type]['pay'];if(isset($pay[$count]))return $pay[$count]*SC_PAYOUT_SCALE;$last=$pay[15];return($last+max(0,$count-15)*1.25)*SC_PAYOUT_SCALE;}
+function sc_cluster_amount(array $cluster,array $mults,int $betKopecks): array {$active=[];foreach($cluster['cells'] as $pos)if(!empty($mults[$pos]))$active[]=(int)$mults[$pos];$mult=$active?array_sum($active):1;$amount=(int)round($betKopecks*sc_pay_factor($cluster['type'],count($cluster['cells']))*$mult);return['amount'=>$amount,'cell_multiplier'=>$mult];}
+function sc_collapse(array $grid,array $wins): array {$remove=[];foreach($wins as $w)foreach($w['cells'] as $i)$remove[$i]=true;$next=array_fill(0,SC_CELLS,null);for($c=0;$c<SC_COLS;$c++){$kept=[];for($r=SC_ROWS-1;$r>=0;$r--){$idx=$r*SC_COLS+$c;if(!isset($remove[$idx]))$kept[]=$grid[$idx];}$write=SC_ROWS-1;foreach($kept as $sym)$next[$write--*SC_COLS+$c]=$sym;while($write>=0)$next[$write--*SC_COLS+$c]=sc_random_symbol();}return $next;}
+function sc_mult_steps(): array {return[2,3,5,10,25,50,100];}
+function sc_upgrade_mult(int $from): int {$steps=sc_mult_steps();if($from<=0){$r=random_int(1,100);return$r<=72?2:($r<=96?3:5);}$idx=array_search($from,$steps,true);if($idx===false)return 2;return$steps[min($idx+1,count($steps)-1)];}
+function sc_evolve_mults(array &$mults,array $wins,bool $freeMode,bool $storm): array {$chance=$freeMode?22:($storm?18:10);$changes=[];$positions=[];foreach($wins as $w)foreach($w['cells'] as $p)$positions[$p]=true;foreach(array_keys($positions) as $p){if(random_int(1,100)>$chance)continue;$from=(int)($mults[$p]??0);$to=sc_upgrade_mult($from);$mults[$p]=$to;if($to!==$from)$changes[]=['pos'=>$p,'from'=>$from,'to'=>$to];}return$changes;}
+function sc_seed_mults(array &$mults,int $count,bool $strong=false): array {$positions=range(0,SC_CELLS-1);shuffle($positions);$positions=array_slice($positions,0,$count);$changes=[];foreach($positions as $p){$from=(int)($mults[$p]??0);$pool=$strong?[3,5,10]:[2,2,3,3,5];$to=$pool[array_rand($pool)];$mults[$p]=max($from,$to);$changes[]=['pos'=>$p,'from'=>$from,'to'=>$mults[$p]];}return$changes;}
+function sc_combo(int $cascade): float {return match(true){$cascade<=1=>1.0,$cascade===2=>1.2,$cascade===3=>1.45,$cascade===4=>1.75,$cascade===5=>2.1,default=>min(3.0,2.1+($cascade-5)*.2)};}
+function sc_scatter_count(array $grid): int {return count(array_filter($grid,fn($x)=>$x==='scatter'));}
+function sc_award_spins(int $scatters): int {return$scatters<3?0:($scatters>=5?12:($scatters===4?10:8));}
 
-function sc_pay_factor(string $type, int $count): float {
-    $pay = sc_defs()[$type]['pay'];
-    if (isset($pay[$count])) return $pay[$count] * SC_PAYOUT_SCALE;
-    $last = $pay[15];
-    return ($last + max(0, $count - 15) * 1.25) * SC_PAYOUT_SCALE;
-}
-
-function sc_cluster_amount(array $cluster, array $mults, int $betKopecks): array {
-    $active = [];
-    foreach ($cluster['cells'] as $pos) if (!empty($mults[$pos])) $active[] = (int)$mults[$pos];
-    $mult = $active ? array_sum($active) : 1;
-    $amount = (int)round($betKopecks * sc_pay_factor($cluster['type'], count($cluster['cells'])) * $mult);
-    return ['amount'=>$amount,'cell_multiplier'=>$mult];
-}
-
-function sc_collapse(array $grid, array $wins): array {
-    $remove = [];
-    foreach ($wins as $w) foreach ($w['cells'] as $i) $remove[$i] = true;
-    $next = array_fill(0, SC_CELLS, null);
-    for ($c=0; $c<SC_COLS; $c++) {
-        $kept = [];
-        for ($r=SC_ROWS-1; $r>=0; $r--) {
-            $idx = $r*SC_COLS+$c;
-            if (!isset($remove[$idx])) $kept[] = $grid[$idx];
-        }
-        $write = SC_ROWS-1;
-        foreach ($kept as $sym) $next[$write--*SC_COLS+$c] = $sym;
-        while ($write >= 0) $next[$write--*SC_COLS+$c] = sc_random_symbol();
-    }
-    return $next;
-}
-
-function sc_mult_steps(): array { return [2,3,5,10,25,50,100]; }
-function sc_upgrade_mult(int $from): int {
-    $steps = sc_mult_steps();
-    if ($from <= 0) { $r=random_int(1,100); return $r<=67?2:($r<=94?3:5); }
-    $idx = array_search($from, $steps, true);
-    if ($idx === false) return 2;
-    return $steps[min($idx+1, count($steps)-1)];
-}
-function sc_evolve_mults(array &$mults, array $wins, bool $freeMode, bool $storm): array {
-    $chance = $freeMode ? 28 : ($storm ? 24 : 15); $changes=[]; $positions=[];
-    foreach ($wins as $w) foreach ($w['cells'] as $p) $positions[$p]=true;
-    foreach (array_keys($positions) as $p) {
-        if (random_int(1,100) > $chance) continue;
-        $from=(int)($mults[$p]??0); $to=sc_upgrade_mult($from); $mults[$p]=$to;
-        if ($to!==$from) $changes[]=['pos'=>$p,'from'=>$from,'to'=>$to];
-    }
-    return $changes;
-}
-function sc_seed_mults(array &$mults, int $count, bool $strong=false): array {
-    $positions=range(0,SC_CELLS-1); shuffle($positions); $positions=array_slice($positions,0,$count); $changes=[];
-    foreach($positions as $p){$from=(int)($mults[$p]??0);$pool=$strong?[3,5,10]:[2,2,3,3,5];$to=$pool[array_rand($pool)];$mults[$p]=max($from,$to);$changes[]=['pos'=>$p,'from'=>$from,'to'=>$mults[$p]];}
-    return $changes;
-}
-function sc_combo(int $cascade): float {
-    return match(true){$cascade<=1=>1.0,$cascade===2=>1.2,$cascade===3=>1.45,$cascade===4=>1.75,$cascade===5=>2.1,default=>min(3.0,2.1+($cascade-5)*.2)};
-}
-function sc_scatter_count(array $grid): int { return count(array_filter($grid, fn($x)=>$x==='scatter')); }
-function sc_award_spins(int $scatters): int { return $scatters<3?0:($scatters>=5?12:($scatters===4?10:8)); }
-
-function sweet_cascade_spin(PDO $pdo, int $userId, int $betRub, string $mode='normal'): array {
-    $allowed=[10,20,50,100,200,500,1000,2000];
-    if(!in_array($betRub,$allowed,true)) throw new RuntimeException('Недопустимая ставка.');
-    if(!in_array($mode,['normal','buy_bonus','buy_super'],true)) throw new RuntimeException('Недопустимый режим.');
-    $bet=$betRub*100; $pdo->beginTransaction();
+function sweet_cascade_spin(PDO $pdo,int $userId,int $betRub,string $mode='normal'): array {
+    $allowed=[10,20,50,100,200,500,1000,2000];if(!in_array($betRub,$allowed,true))throw new RuntimeException('Недопустимая ставка.');if(!in_array($mode,['normal','buy_bonus','buy_super'],true))throw new RuntimeException('Недопустимый режим.');$bet=$betRub*100;$pdo->beginTransaction();
     try{
-        $q=$pdo->prepare('SELECT id,balance_kopecks FROM users WHERE id=? FOR UPDATE');$q->execute([$userId]);$user=$q->fetch();
-        if(!$user) throw new RuntimeException('Аккаунт не найден.');
-        $before=(int)$user['balance_kopecks'];
-        $q=$pdo->prepare('SELECT * FROM user_game_states WHERE user_id=? AND game_key=? FOR UPDATE');$q->execute([$userId,SC_GAME_KEY]);$gs=$q->fetch();
-        if(!$gs){$zero=json_encode(array_fill(0,SC_CELLS,0));$pdo->prepare('INSERT INTO user_game_states(user_id,game_key,multiplier_map_json) VALUES(?,?,?)')->execute([$userId,SC_GAME_KEY,$zero]);$gs=['free_spins'=>0,'storm_charge'=>0,'multiplier_map_json'=>$zero];}
-        $free=(int)$gs['free_spins'];$charge=(float)$gs['storm_charge'];$mults=json_decode((string)$gs['multiplier_map_json'],true);if(!is_array($mults)||count($mults)!==SC_CELLS)$mults=array_fill(0,SC_CELLS,0);
-        if($free>0 && $mode!=='normal') throw new RuntimeException('Сначала завершите активные фриспины.');
-        $isFree=$free>0 && $mode==='normal';
-        $cost=$isFree?0:($mode==='buy_bonus'?$bet*80:($mode==='buy_super'?$bet*250:$bet));
-        if($before<$cost) throw new RuntimeException('Недостаточно виртуальных средств.');
-        if($isFree)$free--;
-        $storm=false;
-        if(!$isFree && $mode==='normal'){$mults=array_fill(0,SC_CELLS,0);if($charge>=100){$charge=0;$storm=true;sc_seed_mults($mults,6,true);}}
-        if($mode==='buy_bonus')$mults=array_fill(0,SC_CELLS,0);
-        if($mode==='buy_super'){$mults=array_fill(0,SC_CELLS,0);sc_seed_mults($mults,7,true);}
-        $grid=sc_random_grid();
-        if($mode!=='normal'){$force=$mode==='buy_super'?5:4;$pos=range(0,SC_CELLS-1);shuffle($pos);foreach(array_slice($pos,0,$force) as $p)$grid[$p]='scatter';}
+        $q=$pdo->prepare('SELECT id,balance_kopecks FROM users WHERE id=? FOR UPDATE');$q->execute([$userId]);$user=$q->fetch();if(!$user)throw new RuntimeException('Аккаунт не найден.');$before=(int)$user['balance_kopecks'];
+        $q=$pdo->prepare('SELECT * FROM user_game_states WHERE user_id=? AND game_key=? FOR UPDATE');$q->execute([$userId,SC_GAME_KEY]);$gs=$q->fetch();if(!$gs){$zero=json_encode(array_fill(0,SC_CELLS,0));$pdo->prepare('INSERT INTO user_game_states(user_id,game_key,multiplier_map_json) VALUES(?,?,?)')->execute([$userId,SC_GAME_KEY,$zero]);$gs=['free_spins'=>0,'storm_charge'=>0,'multiplier_map_json'=>$zero];}
+        $free=(int)$gs['free_spins'];$charge=(float)$gs['storm_charge'];$mults=json_decode((string)$gs['multiplier_map_json'],true);if(!is_array($mults)||count($mults)!==SC_CELLS)$mults=array_fill(0,SC_CELLS,0);if($free>0&&$mode!=='normal')throw new RuntimeException('Сначала завершите активные фриспины.');$isFree=$free>0&&$mode==='normal';$cost=$isFree?0:($mode==='buy_bonus'?$bet*80:($mode==='buy_super'?$bet*250:$bet));if($before<$cost)throw new RuntimeException('Недостаточно виртуальных средств.');if($isFree)$free--;
+        $storm=false;if(!$isFree&&$mode==='normal'){$mults=array_fill(0,SC_CELLS,0);if($charge>=100){$charge=0;$storm=true;sc_seed_mults($mults,5,true);}}if($mode==='buy_bonus')$mults=array_fill(0,SC_CELLS,0);if($mode==='buy_super'){$mults=array_fill(0,SC_CELLS,0);sc_seed_mults($mults,6,true);}
+        $grid=sc_random_grid();if($mode!=='normal'){$force=$mode==='buy_super'?5:4;$pos=range(0,SC_CELLS-1);shuffle($pos);foreach(array_slice($pos,0,$force) as $p)$grid[$p]='scatter';}
         $initialGrid=$grid;$initialMults=$mults;$steps=[];$total=0;$cascade=0;$cap=$bet*SC_MAX_WIN_X;
-        while(true){
-            $wins=sc_find_clusters($grid);if(!$wins)break;$cascade++;
-            $raw=0;$clusters=[];
-            foreach($wins as $w){$calc=sc_cluster_amount($w,$mults,$bet);$raw+=$calc['amount'];$clusters[]=['type'=>$w['type'],'cells'=>$w['cells'],'cell_multiplier'=>$calc['cell_multiplier']];}
-            $combo=sc_combo($cascade);$won=(int)round($raw*$combo);$won=max(0,min($won,$cap-$total));$total+=$won;
-            $changes=sc_evolve_mults($mults,$wins,$isFree||$free>0,$storm);$grid=sc_collapse($grid,$wins);$burst=[];
-            if($cascade===3||$cascade===6){$burst=sc_seed_mults($mults,$cascade===6?5:3,$cascade===6);$changes=array_merge($changes,$burst);}
-            $steps[]=['cascade'=>$cascade,'clusters'=>$clusters,'win_kopecks'=>$won,'win'=>$won/100,'combo'=>$combo,'grid_after'=>$grid,'multipliers_after'=>$mults,'multiplier_changes'=>$changes,'burst'=>$burst];
-            if($total>=$cap||$cascade>=18)break;
-        }
-        $scatters=sc_scatter_count($grid);$awarded=sc_award_spins($scatters);$free+=$awarded;
-        if(!$isFree && $mode==='normal'){$ratio=$total/max(1,$bet);$gain=$total>0?min(30,7+$cascade*3+sqrt($ratio)*2.2):3;$charge=min(100,$charge+$gain);}
-        $after=$before-$cost+$total;
-        $pdo->prepare('UPDATE users SET balance_kopecks=? WHERE id=?')->execute([$after,$userId]);
-        $persistMults=($free>0)?$mults:array_fill(0,SC_CELLS,0);
-        $pdo->prepare('UPDATE user_game_states SET free_spins=?,storm_charge=?,multiplier_map_json=? WHERE user_id=? AND game_key=?')->execute([$free,$charge,json_encode($persistMults),$userId,SC_GAME_KEY]);
-        $summary=['cascades'=>$cascade,'scatters'=>$scatters,'free_spins_awarded'=>$awarded,'storm_active'=>$storm];
-        $pdo->prepare('INSERT INTO game_rounds(user_id,game_key,mode,bet_kopecks,cost_kopecks,win_kopecks,balance_before_kopecks,balance_after_kopecks,result_json) VALUES(?,?,?,?,?,?,?,?,?)')->execute([$userId,SC_GAME_KEY,$mode,$bet,$cost,$total,$before,$after,json_encode($summary,JSON_UNESCAPED_UNICODE)]);
-        $roundId=(int)$pdo->lastInsertId();$ref='round:'.$roundId;
-        if($cost>0)wallet_entry($pdo,$userId,$mode==='normal'?'game_bet':'feature_purchase',-$cost,$before-$cost,$ref,['game'=>SC_GAME_KEY,'bet'=>$betRub,'mode'=>$mode]);
-        if($total>0)wallet_entry($pdo,$userId,'game_win',$total,$after,$ref,['game'=>SC_GAME_KEY,'cascades'=>$cascade]);
-        $pdo->commit();
-        return ['ok'=>true,'round_id'=>$roundId,'mode'=>$mode,'is_free_spin'=>$isFree,'bet'=>$betRub,'cost_kopecks'=>$cost,'cost'=>$cost/100,'balance_before'=>$before/100,'balance_after'=>$after/100,'initial_grid'=>$initialGrid,'initial_multipliers'=>$initialMults,'steps'=>$steps,'total_win'=>$total/100,'total_win_kopecks'=>$total,'scatters'=>$scatters,'free_spins_awarded'=>$awarded,'free_spins'=>$free,'storm_charge'=>$charge,'storm_active'=>$storm,'final_grid'=>$grid,'final_multipliers'=>$mults];
+        while(true){$wins=sc_find_clusters($grid);if(!$wins)break;$cascade++;$raw=0;$clusters=[];foreach($wins as $w){$calc=sc_cluster_amount($w,$mults,$bet);$raw+=$calc['amount'];$clusters[]=['type'=>$w['type'],'cells'=>$w['cells'],'cell_multiplier'=>$calc['cell_multiplier']];}$combo=sc_combo($cascade);$won=(int)round($raw*$combo);$won=max(0,min($won,$cap-$total));$total+=$won;$changes=sc_evolve_mults($mults,$wins,$isFree||$free>0,$storm);$grid=sc_collapse($grid,$wins);$burst=[];if($cascade===4||$cascade===7){$burst=sc_seed_mults($mults,$cascade===7?4:2,$cascade===7);$changes=array_merge($changes,$burst);}$steps[]=['cascade'=>$cascade,'clusters'=>$clusters,'win_kopecks'=>$won,'win'=>$won/100,'combo'=>$combo,'grid_after'=>$grid,'multipliers_after'=>$mults,'multiplier_changes'=>$changes,'burst'=>$burst];if($total>=$cap||$cascade>=18)break;}
+        $scatters=sc_scatter_count($grid);$awarded=sc_award_spins($scatters);$free+=$awarded;if(!$isFree&&$mode==='normal'){$ratio=$total/max(1,$bet);$gain=$total>0?min(24,4+$cascade*2+sqrt($ratio)*1.7):2;$charge=min(100,$charge+$gain);}$after=$before-$cost+$total;
+        $pdo->prepare('UPDATE users SET balance_kopecks=? WHERE id=?')->execute([$after,$userId]);$persistMults=$free>0?$mults:array_fill(0,SC_CELLS,0);$pdo->prepare('UPDATE user_game_states SET free_spins=?,storm_charge=?,multiplier_map_json=? WHERE user_id=? AND game_key=?')->execute([$free,$charge,json_encode($persistMults),$userId,SC_GAME_KEY]);$summary=['cascades'=>$cascade,'scatters'=>$scatters,'free_spins_awarded'=>$awarded,'storm_active'=>$storm,'math_profile'=>'high-volatility-v2'];$pdo->prepare('INSERT INTO game_rounds(user_id,game_key,mode,bet_kopecks,cost_kopecks,win_kopecks,balance_before_kopecks,balance_after_kopecks,result_json) VALUES(?,?,?,?,?,?,?,?,?)')->execute([$userId,SC_GAME_KEY,$mode,$bet,$cost,$total,$before,$after,json_encode($summary,JSON_UNESCAPED_UNICODE)]);$roundId=(int)$pdo->lastInsertId();$ref='round:'.$roundId;if($cost>0)wallet_entry($pdo,$userId,$mode==='normal'?'game_bet':'feature_purchase',-$cost,$before-$cost,$ref,['game'=>SC_GAME_KEY,'bet'=>$betRub,'mode'=>$mode]);if($total>0)wallet_entry($pdo,$userId,'game_win',$total,$after,$ref,['game'=>SC_GAME_KEY,'cascades'=>$cascade]);$pdo->commit();
+        return['ok'=>true,'round_id'=>$roundId,'mode'=>$mode,'is_free_spin'=>$isFree,'bet'=>$betRub,'cost_kopecks'=>$cost,'cost'=>$cost/100,'balance_before'=>$before/100,'balance_after'=>$after/100,'initial_grid'=>$initialGrid,'initial_multipliers'=>$initialMults,'steps'=>$steps,'total_win'=>$total/100,'total_win_kopecks'=>$total,'scatters'=>$scatters,'free_spins_awarded'=>$awarded,'free_spins'=>$free,'storm_charge'=>$charge,'storm_active'=>$storm,'final_grid'=>$grid,'final_multipliers'=>$mults,'math_profile'=>'high-volatility-v2'];
     }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 }
