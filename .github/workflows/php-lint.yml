@@ -25,8 +25,9 @@ jobs:
         run: |
           php -r '
           require "app/high_volatility_engines.php";
+          require "app/precision_engines.php";
           require "app/sky_pantheon.php";
-          $engines=["hv_fruit","hv_temple","hv_jungle","hv_crystal","hv_scroll","hv_neon","hv_sky"];
+          $engines=["hv_fruit","hv3_temple","hv_jungle","hv_crystal","hv_scroll","hv3_neon","hv_sky"];
           foreach($engines as $engine){
             for($i=0;$i<40;$i++){
               $free=0;$state=[];$result=$engine(10000,false,$free,$state);
