@@ -12,5 +12,8 @@ return [
         'base_url' => '',
         'session_name' => 'candyclub_session',
         'starting_balance_kopecks' => 1000000,
+        // Укажите логин/почту администратора. Можно оставить пустыми.
+        'admin_usernames' => ['YOUR_ADMIN_USERNAME'],
+        'admin_emails' => [],
     ],
 ];
