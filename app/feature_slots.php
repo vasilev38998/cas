@@ -2,38 +2,41 @@
 declare(strict_types=1);
 require_once __DIR__.'/high_volatility_engines.php';
 
+function feature_lines6_4(): array {
+    return [[0,0,0,0,0],[1,1,1,1,1],[2,2,2,2,2],[3,3,3,3,3],[0,1,2,1,0],[3,2,1,2,3]];
+}
 function hv_curtains(int $betK,bool $isFree,int &$free,array &$state): array {
     $c=5;$r=4;
-    $weights=['rose'=>2100,'fan'=>1950,'mask'=>1750,'crown'=>1350,'gem'=>950,'wild'=>$isFree?190:95,'scatter'=>75];
-    $pay=['rose'=>[3=>1.1,4=>3.4,5=>10],'fan'=>[3=>1.3,4=>4.1,5=>12],'mask'=>[3=>1.6,4=>5.2,5=>16],'crown'=>[3=>2.3,4=>8,5=>25],'gem'=>[3=>3.8,4=>14,5=>45],'wild'=>[3=>6,4=>22,5=>70]];
+    $weights=['rose'=>2150,'fan'=>2000,'mask'=>1800,'crown'=>1375,'gem'=>950,'wild'=>$isFree?180:85,'scatter'=>68];
+    $pay=['rose'=>[3=>1.2,4=>3.7,5=>11],'fan'=>[3=>1.4,4=>4.5,5=>13],'mask'=>[3=>1.75,4=>5.7,5=>17],'crown'=>[3=>2.5,4=>8.7,5=>27],'gem'=>[3=>4.1,4=>15,5=>48],'wild'=>[3=>6.5,4=>24,5=>75]];
     $grid=ag_grid($c,$r,$weights);$initial=$grid;$curtains=[];$reveal=null;
-    $trigger=$isFree || random_int(1,100)<=9;
+    $trigger=$isFree || random_int(1,100)<=7;
     if($trigger){
-        $count=$isFree?2:(random_int(1,100)<=24?2:1);$cols=range(0,$c-1);shuffle($cols);$curtains=array_slice($cols,0,$count);
-        $pool=['rose'=>30,'fan'=>26,'mask'=>20,'crown'=>13,'gem'=>8,'wild'=>$isFree?3:1];$reveal=ag_pick($pool);
+        $count=$isFree?2:(random_int(1,100)<=20?2:1);$cols=range(0,$c-1);shuffle($cols);$curtains=array_slice($cols,0,$count);
+        $pool=['rose'=>31,'fan'=>27,'mask'=>20,'crown'=>12,'gem'=>8,'wild'=>$isFree?2:1];$reveal=ag_pick($pool);
         foreach($curtains as $col)for($row=0;$row<$r;$row++)$grid[$col*$r+$row]=$reveal;
     }
-    $ev=ag_line_eval($grid,$c,$r,hv_lines8_4(),$pay,'wild',$betK);$sc=ag_scatter_count($initial);$award=0;
+    $ev=ag_line_eval($grid,$c,$r,feature_lines6_4(),$pay,'wild',$betK);$sc=ag_scatter_count($initial);$award=0;
     if($sc>=3){$award=$isFree?3:($sc>=5?12:($sc===4?10:8));$free+=$award;}
-    $steps=[];if($ev['amount']>0)$steps[]=['label'=>$curtains?'ЗАНАВЕС ОТКРЫТ':'8 ЛИНИЙ','win'=>$ev['amount']/100,'positions'=>$ev['positions'],'grid_after'=>$grid,'fx'=>$curtains?'curtain-win':'velvet-win'];
+    $steps=[];if($ev['amount']>0)$steps[]=['label'=>$curtains?'ЗАНАВЕС ОТКРЫТ':'6 ЛИНИЙ','win'=>$ev['amount']/100,'positions'=>$ev['positions'],'grid_after'=>$grid,'fx'=>$curtains?'curtain-win':'velvet-win'];
     return ['win'=>$ev['amount'],'payload'=>[
         'initial_grid'=>$initial,'display_grid'=>$grid,'steps'=>$steps,'feature'=>null,'free_spins_awarded'=>$award,
-        'curtains'=>$curtains,'curtain_symbol'=>$reveal,'badge'=>$isFree?'БОНУС: ДВОЙНОЙ ЗАНАВЕС':'ЗАНАВЕС МОЖЕТ ЗАКРЫТЬ БАРАБАН'
+        'curtains'=>$curtains,'curtain_symbol'=>$reveal,'badge'=>$isFree?'БОНУС: ДВОЙНОЙ ЗАНАВЕС':'РЕДКИЙ ЗАНАВЕС • 6 ЛИНИЙ'
     ]];
 }
 
 function hv_mystery(int $betK,bool $isFree,int &$free,array &$state): array {
     $c=5;$r=4;
-    $weights=['key'=>2050,'watch'=>1900,'ring'=>1700,'pearl'=>1500,'gem'=>1050,'mystery'=>$isFree?420:230,'wild'=>95,'scatter'=>65];
-    $pay=['key'=>[3=>1,4=>3.1,5=>9],'watch'=>[3=>1.25,4=>4,5=>12],'ring'=>[3=>1.55,4=>5,5=>16],'pearl'=>[3=>2,4=>7,5=>22],'gem'=>[3=>3.5,4=>13,5=>42],'wild'=>[3=>6,4=>22,5=>70]];
+    $weights=['key'=>2100,'watch'=>1950,'ring'=>1750,'pearl'=>1525,'gem'=>1075,'mystery'=>$isFree?360:170,'wild'=>85,'scatter'=>60];
+    $pay=['key'=>[3=>1.1,4=>3.4,5=>10],'watch'=>[3=>1.35,4=>4.4,5=>13],'ring'=>[3=>1.7,4=>5.5,5=>17],'pearl'=>[3=>2.2,4=>7.7,5=>24],'gem'=>[3=>3.8,4=>14,5=>45],'wild'=>[3=>6.5,4=>24,5=>75]];
     $grid=ag_grid($c,$r,$weights);$initial=$grid;$mystery=[];foreach($grid as $i=>$s)if($s==='mystery')$mystery[]=$i;$reveal=null;
-    if($mystery){$pool=['key'=>29,'watch'=>25,'ring'=>20,'pearl'=>15,'gem'=>9,'wild'=>2];$reveal=ag_pick($pool);foreach($mystery as $i)$grid[$i]=$reveal;}
-    $ev=ag_line_eval($grid,$c,$r,ag_lines10(),$pay,'wild',$betK);$sc=ag_scatter_count($initial);$award=0;
+    if($mystery){$pool=['key'=>30,'watch'=>26,'ring'=>20,'pearl'=>15,'gem'=>8,'wild'=>1];$reveal=ag_pick($pool);foreach($mystery as $i)$grid[$i]=$reveal;}
+    $ev=ag_line_eval($grid,$c,$r,feature_lines6_4(),$pay,'wild',$betK);$sc=ag_scatter_count($initial);$award=0;
     if($sc>=3){$award=$isFree?3:($sc>=5?12:($sc===4?10:8));$free+=$award;}
-    $steps=[];if($ev['amount']>0)$steps[]=['label'=>$mystery?'ТАЙНЫЙ СИМВОЛ: '.strtoupper((string)$reveal):'10 ЛИНИЙ','win'=>$ev['amount']/100,'positions'=>$ev['positions'],'grid_after'=>$grid,'fx'=>$mystery?'mystery-reveal':'vault-win'];
+    $steps=[];if($ev['amount']>0)$steps[]=['label'=>$mystery?'ТАЙНЫЙ СИМВОЛ: '.strtoupper((string)$reveal):'6 ЛИНИЙ','win'=>$ev['amount']/100,'positions'=>$ev['positions'],'grid_after'=>$grid,'fx'=>$mystery?'mystery-reveal':'vault-win'];
     return ['win'=>$ev['amount'],'payload'=>[
         'initial_grid'=>$initial,'display_grid'=>$grid,'steps'=>$steps,'feature'=>null,'free_spins_awarded'=>$award,
-        'mystery_positions'=>$mystery,'mystery_symbol'=>$reveal,'badge'=>$isFree?'БОНУС: БОЛЬШЕ ТАЙНЫХ ЯЧЕЕК':'ТАЙНЫЕ ЯЧЕЙКИ ПРЕВРАЩАЮТСЯ В ОДИН СИМВОЛ'
+        'mystery_positions'=>$mystery,'mystery_symbol'=>$reveal,'badge'=>$isFree?'БОНУС: БОЛЬШЕ ТАЙНЫХ ЯЧЕЕК':'РЕДКИЕ MYSTERY • 6 ЛИНИЙ'
     ]];
 }
 
