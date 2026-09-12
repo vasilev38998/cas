@@ -6,56 +6,20 @@ require_once __DIR__.'/sky_pantheon.php';
 require_once __DIR__.'/feature_slots.php';
 require_once __DIR__.'/game_catalog.php';
 
-function arcade_bonus_award(string $gameKey): int {
-    return ['fruit-fiesta'=>8,'temple-ways'=>8,'crystal-clusters'=>7,'sun-scroll'=>8,'neon-rush'=>8,'sky-pantheon'=>8,'velvet-curtains'=>8,'mystery-vault'=>8][$gameKey]??8;
-}
+function arcade_bonus_award(string $gameKey): int {return['fruit-fiesta'=>8,'temple-ways'=>8,'crystal-clusters'=>7,'sun-scroll'=>8,'neon-rush'=>8,'sky-pantheon'=>8,'velvet-curtains'=>8,'mystery-vault'=>8][$gameKey]??8;}
 function arcade_game_spin_hv(PDO $pdo,int $userId,string $gameKey,int $betRub,string $mode='normal'): array {
-    $allowed=[10,20,50,100,200,500,1000];
-    if(!in_array($betRub,$allowed,true))throw new RuntimeException('Недопустимая ставка.');
-    if(!in_array($mode,['normal','buy_bonus'],true))throw new RuntimeException('Недопустимый режим.');
-    $engines=[
-        'fruit-fiesta'=>'hv_fruit','temple-ways'=>'hv3_temple','jungle-hold'=>'hv_jungle','crystal-clusters'=>'hv_crystal',
-        'sun-scroll'=>'hv_scroll','neon-rush'=>'hv3_neon','sky-pantheon'=>'hv_sky','velvet-curtains'=>'hv_curtains','mystery-vault'=>'hv_mystery'
-    ];
-    if(!isset($engines[$gameKey]))throw new RuntimeException('Игра не найдена.');
-    $cfg=game_config($gameKey);if(!$cfg)throw new RuntimeException('Игра не найдена.');
+    $allowed=[10,20,50,100,200,500,1000];if(!in_array($betRub,$allowed,true))throw new RuntimeException('Недопустимая ставка.');if(!in_array($mode,['normal','buy_bonus'],true))throw new RuntimeException('Недопустимый режим.');
+    $engines=['fruit-fiesta'=>'hv_fruit','temple-ways'=>'hv3_temple','jungle-hold'=>'hv_jungle','crystal-clusters'=>'hv_crystal','sun-scroll'=>'hv_scroll','neon-rush'=>'hv3_neon','sky-pantheon'=>'hv_sky','velvet-curtains'=>'hv_curtains','mystery-vault'=>'hv_mystery'];if(!isset($engines[$gameKey]))throw new RuntimeException('Игра не найдена.');$cfg=game_config($gameKey);if(!$cfg)throw new RuntimeException('Игра не найдена.');cc_play_guard($userId,null,false);
     $betK=$betRub*100;$pdo->beginTransaction();
     try{
         $q=$pdo->prepare('SELECT id,balance_kopecks FROM users WHERE id=? FOR UPDATE');$q->execute([$userId]);$u=$q->fetch();if(!$u)throw new RuntimeException('Аккаунт не найден.');$before=(int)$u['balance_kopecks'];
-        $q=$pdo->prepare('SELECT free_spins,multiplier_map_json FROM user_game_states WHERE user_id=? AND game_key=? FOR UPDATE');$q->execute([$userId,$gameKey]);$gs=$q->fetch();
-        if(!$gs){$pdo->prepare('INSERT INTO user_game_states(user_id,game_key,multiplier_map_json) VALUES(?,?,?)')->execute([$userId,$gameKey,'{}']);$gs=['free_spins'=>0,'multiplier_map_json'=>'{}'];}
-        $free=(int)$gs['free_spins'];$state=json_decode((string)$gs['multiplier_map_json'],true);if(!is_array($state))$state=[];
-        if($mode==='buy_bonus'&&$free>0)throw new RuntimeException('Сначала завершите активные фриспины.');
-        $isFree=$free>0&&$mode==='normal';if($isFree)$free--;
-        $buyX=(int)($cfg['buy_bonus']??0);$cost=$isFree?0:($mode==='buy_bonus'?$betK*$buyX:$betK);
-        if($mode==='buy_bonus'&&$buyX<=0)throw new RuntimeException('Bonus Buy недоступен в этой игре.');
-        if($before<$cost)throw new RuntimeException('Недостаточно виртуальных средств.');
+        $q=$pdo->prepare('SELECT free_spins,multiplier_map_json FROM user_game_states WHERE user_id=? AND game_key=? FOR UPDATE');$q->execute([$userId,$gameKey]);$gs=$q->fetch();if(!$gs){$pdo->prepare('INSERT INTO user_game_states(user_id,game_key,multiplier_map_json) VALUES(?,?,?)')->execute([$userId,$gameKey,'{}']);$gs=['free_spins'=>0,'multiplier_map_json'=>'{}'];}
+        $free=(int)$gs['free_spins'];$state=json_decode((string)$gs['multiplier_map_json'],true);if(!is_array($state))$state=[];if($mode==='buy_bonus'&&$free>0)throw new RuntimeException('Сначала завершите активные фриспины.');$isFree=$free>0&&$mode==='normal';if(!$isFree)cc_play_guard($userId,$betRub,true);if($isFree)$free--;
+        $buyX=(int)($cfg['buy_bonus']??0);$cost=$isFree?0:($mode==='buy_bonus'?$betK*$buyX:$betK);if($mode==='buy_bonus'&&$buyX<=0)throw new RuntimeException('Bonus Buy недоступен в этой игре.');if($before<$cost)throw new RuntimeException('Недостаточно виртуальных средств.');
         if($mode==='buy_bonus'){
-            if($gameKey==='jungle-hold'){
-                $result=arcade_jungle_buy($betK);
-            }else{
-                $award=arcade_bonus_award($gameKey);$free+=$award;
-                if($gameKey==='fruit-fiesta')$state['sticky']=[];
-                if($gameKey==='temple-ways')$state['free_mult']=1;
-                if($gameKey==='neon-rush')$state['voltage']=1;
-                if($gameKey==='sky-pantheon')$state['sky_charge']=1;
-                if($gameKey==='sun-scroll'){$regular=['falcon','scarab','lotus','ankh','crown'];$state['chosen']=$regular[array_rand($regular)];}
-                $scatters=in_array($gameKey,['crystal-clusters','sky-pantheon'],true)?4:3;
-                $grid=arcade_forced_bonus_grid($gameKey,(int)$cfg['cols'],(int)$cfg['rows'],$cfg['symbols'],$scatters);
-                $result=['win'=>0,'payload'=>['initial_grid'=>$grid,'steps'=>[],'feature'=>null,'free_spins_awarded'=>$award,'badge'=>'BONUS BUY • +'.$award.' ФРИСПИНОВ','purchase'=>true]];
-            }
-        }else{
-            $engine=$engines[$gameKey];$result=$engine($betK,$isFree,$free,$state);
-        }
-        $win=max(0,(int)$result['win']);$cap=$betK*10000;if($win>$cap)$win=$cap;$after=$before-$cost+$win;
-        $pdo->prepare('UPDATE users SET balance_kopecks=? WHERE id=?')->execute([$after,$userId]);
-        $pdo->prepare('UPDATE user_game_states SET free_spins=?,storm_charge=0,multiplier_map_json=? WHERE user_id=? AND game_key=?')->execute([$free,json_encode($state,JSON_UNESCAPED_UNICODE),$userId,$gameKey]);
-        $summary=['free'=>$isFree,'free_spins_after'=>$free,'feature'=>!empty($result['payload']['feature']),'math_profile'=>'high-volatility-v4','purchase'=>$mode==='buy_bonus'];
-        $pdo->prepare('INSERT INTO game_rounds(user_id,game_key,mode,bet_kopecks,cost_kopecks,win_kopecks,balance_before_kopecks,balance_after_kopecks,result_json) VALUES(?,?,?,?,?,?,?,?,?)')->execute([$userId,$gameKey,$isFree?'free':$mode,$betK,$cost,$win,$before,$after,json_encode($summary,JSON_UNESCAPED_UNICODE)]);
-        $round=(int)$pdo->lastInsertId();$ref='round:'.$round;
-        if($cost>0)wallet_entry($pdo,$userId,$mode==='buy_bonus'?'feature_purchase':'game_bet',-$cost,$before-$cost,$ref,['game'=>$gameKey,'bet'=>$betRub,'mode'=>$mode]);
-        if($win>0)wallet_entry($pdo,$userId,'game_win',$win,$after,$ref,['game'=>$gameKey]);
-        $pdo->commit();
-        return array_merge(['ok'=>true,'round_id'=>$round,'game'=>$gameKey,'mode'=>$mode,'bet'=>$betRub,'is_free_spin'=>$isFree,'cost'=>$cost/100,'balance_before'=>$before/100,'balance_after'=>$after/100,'total_win'=>$win/100,'free_spins'=>$free,'math_profile'=>'high-volatility-v4'],$result['payload']);
-    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+            if($gameKey==='jungle-hold'){$result=arcade_jungle_buy($betK);}else{$award=arcade_bonus_award($gameKey);$free+=$award;if($gameKey==='fruit-fiesta')$state['sticky']=[];if($gameKey==='temple-ways')$state['free_mult']=1;if($gameKey==='neon-rush')$state['voltage']=1;if($gameKey==='sky-pantheon')$state['sky_charge']=1;if($gameKey==='sun-scroll'){$regular=['falcon','scarab','lotus','ankh','crown'];$state['chosen']=$regular[array_rand($regular)];}$scatters=in_array($gameKey,['crystal-clusters','sky-pantheon'],true)?4:3;$grid=arcade_forced_bonus_grid($gameKey,(int)$cfg['cols'],(int)$cfg['rows'],$cfg['symbols'],$scatters);$result=['win'=>0,'payload'=>['initial_grid'=>$grid,'steps'=>[],'feature'=>null,'free_spins_awarded'=>$award,'badge'=>'BONUS BUY • +'.$award.' ФРИСПИНОВ','purchase'=>true]];}
+        }else{$engine=$engines[$gameKey];$result=$engine($betK,$isFree,$free,$state);}
+        $win=max(0,(int)$result['win']);$cap=$betK*10000;if($win>$cap)$win=$cap;$after=$before-$cost+$win;$pdo->prepare('UPDATE users SET balance_kopecks=? WHERE id=?')->execute([$after,$userId]);$pdo->prepare('UPDATE user_game_states SET free_spins=?,storm_charge=0,multiplier_map_json=? WHERE user_id=? AND game_key=?')->execute([$free,json_encode($state,JSON_UNESCAPED_UNICODE),$userId,$gameKey]);$summary=['free'=>$isFree,'free_spins_after'=>$free,'feature'=>!empty($result['payload']['feature']),'math_profile'=>'high-volatility-v4','purchase'=>$mode==='buy_bonus'];$pdo->prepare('INSERT INTO game_rounds(user_id,game_key,mode,bet_kopecks,cost_kopecks,win_kopecks,balance_before_kopecks,balance_after_kopecks,result_json) VALUES(?,?,?,?,?,?,?,?,?)')->execute([$userId,$gameKey,$isFree?'free':$mode,$betK,$cost,$win,$before,$after,json_encode($summary,JSON_UNESCAPED_UNICODE)]);$round=(int)$pdo->lastInsertId();$ref='round:'.$round;if($cost>0)wallet_entry($pdo,$userId,$mode==='buy_bonus'?'feature_purchase':'game_bet',-$cost,$before-$cost,$ref,['game'=>$gameKey,'bet'=>$betRub,'mode'=>$mode]);if($win>0)wallet_entry($pdo,$userId,'game_win',$win,$after,$ref,['game'=>$gameKey]);$pdo->commit();
+        return array_merge(['ok'=>true,'round_id'=>$round,'round_receipt'=>substr(hash('sha256',$round.'|'.$gameKey.'|'.$before.'|'.$after.'|'.$win),0,20),'game'=>$gameKey,'mode'=>$mode,'bet'=>$betRub,'is_free_spin'=>$isFree,'cost'=>$cost/100,'balance_before'=>$before/100,'balance_after'=>$after/100,'total_win'=>$win/100,'free_spins'=>$free,'math_profile'=>'high-volatility-v4'],$result['payload']);
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw$e;}
 }
