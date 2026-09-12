@@ -13,3 +13,18 @@ jobs:
           php-version: '8.2'
       - name: Lint PHP files
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+      - name: Smoke test original game engines
+        run: |
+          php -r '
+          require "app/extra_games.php";
+          $engines=["ag_engine_fruit","ag_engine_temple","ag_engine_jungle","ag_engine_crystal","ag_engine_scroll","ag_engine_neon"];
+          foreach($engines as $engine){
+            for($i=0;$i<20;$i++){
+              $free=0;$state=[];$result=$engine(10000,false,$free,$state);
+              if(!is_array($result)||!isset($result["win"],$result["payload"])) throw new Exception("Bad result: ".$engine);
+              $free=3;$state=[];$result=$engine(10000,true,$free,$state);
+              if(!is_array($result)||!isset($result["win"],$result["payload"])) throw new Exception("Bad free result: ".$engine);
+            }
+            echo $engine." OK\n";
+          }
+          '
