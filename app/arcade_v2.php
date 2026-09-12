@@ -1,11 +1,12 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/high_volatility_engines.php';
+require_once __DIR__.'/sky_pantheon.php';
 
 function arcade_game_spin_hv(PDO $pdo,int $userId,string $gameKey,int $betRub): array {
     $allowed=[10,20,50,100,200,500,1000];
     if(!in_array($betRub,$allowed,true))throw new RuntimeException('Недопустимая ставка.');
-    $engines=['fruit-fiesta'=>'hv_fruit','temple-ways'=>'hv_temple','jungle-hold'=>'hv_jungle','crystal-clusters'=>'hv_crystal','sun-scroll'=>'hv_scroll','neon-rush'=>'hv_neon'];
+    $engines=['fruit-fiesta'=>'hv_fruit','temple-ways'=>'hv_temple','jungle-hold'=>'hv_jungle','crystal-clusters'=>'hv_crystal','sun-scroll'=>'hv_scroll','neon-rush'=>'hv_neon','sky-pantheon'=>'hv_sky'];
     if(!isset($engines[$gameKey]))throw new RuntimeException('Игра не найдена.');
     $betK=$betRub*100;$pdo->beginTransaction();
     try{
