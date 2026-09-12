@@ -15,20 +15,23 @@ jobs:
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Check JavaScript syntax
         run: |
+          node --check arcade-symbols.js
           node --check arcade-game.js
           node --check game-state.js
           node --check game-visuals.js
           node --check game-juice.js
           node --check game-server.js
-      - name: Smoke test original game engines
+      - name: Smoke test current arcade engines
         run: |
           php -r '
-          require "app/extra_games.php";
-          $engines=["ag_engine_fruit","ag_engine_temple","ag_engine_jungle","ag_engine_crystal","ag_engine_scroll","ag_engine_neon"];
+          require "app/high_volatility_engines.php";
+          require "app/sky_pantheon.php";
+          $engines=["hv_fruit","hv_temple","hv_jungle","hv_crystal","hv_scroll","hv_neon","hv_sky"];
           foreach($engines as $engine){
-            for($i=0;$i<20;$i++){
+            for($i=0;$i<40;$i++){
               $free=0;$state=[];$result=$engine(10000,false,$free,$state);
               if(!is_array($result)||!isset($result["win"],$result["payload"])) throw new Exception("Bad result: ".$engine);
+              if(!isset($result["payload"]["initial_grid"],$result["payload"]["steps"])) throw new Exception("Missing payload: ".$engine);
               $free=3;$state=[];$result=$engine(10000,true,$free,$state);
               if(!is_array($result)||!isset($result["win"],$result["payload"])) throw new Exception("Bad free result: ".$engine);
             }
