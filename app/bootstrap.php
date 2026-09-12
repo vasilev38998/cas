@@ -1,22 +1,27 @@
 <?php
 declare(strict_types=1);
 
+function cc_contains($haystack, $needle): bool {
+    return $needle === '' || strpos((string)$haystack, (string)$needle) !== false;
+}
+
 $configFile = __DIR__ . '/config.php';
 if (!is_file($configFile)) {
     http_response_code(503);
-    $isJson = str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') || str_contains($_SERVER['REQUEST_URI'] ?? '', '/api/');
+    $isJson = cc_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') || cc_contains($_SERVER['REQUEST_URI'] ?? '', '/api/');
     if ($isJson) {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['ok' => false, 'error' => 'Сайт ещё не настроен: создайте app/config.php из app/config.example.php.'], JSON_UNESCAPED_UNICODE);
     } else {
-        echo '<!doctype html><meta charset="utf-8"><title>Настройка</title><style>body{font-family:system-ui;background:#17121f;color:#fff;padding:40px;max-width:800px;margin:auto}code{background:#2b2138;padding:3px 7px;border-radius:6px}</style><h1>Нужна первичная настройка</h1><p>Скопируйте <code>app/config.example.php</code> в <code>app/config.php</code>, укажите данные MySQL и импортируйте <code>schema.sql</code>.</p>';
+        echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Настройка CandyClub</title><style>body{font-family:system-ui;background:#17121f;color:#fff;padding:32px;max-width:820px;margin:auto;line-height:1.55}code{background:#2b2138;padding:3px 7px;border-radius:6px}.box{padding:20px;border:1px solid #443650;border-radius:18px;background:#21182c}</style><div class="box"><h1>Нужна первичная настройка</h1><p>PHP уже запускается. Теперь скопируйте <code>app/config.example.php</code> в <code>app/config.php</code>, укажите данные MySQL и импортируйте <code>schema.sql</code>.</p><p>Для проверки окружения откройте <code>/health.php</code>.</p></div>';
     }
     exit;
 }
 
 $config = require $configFile;
 if (!is_array($config)) {
-    throw new RuntimeException('Invalid configuration.');
+    http_response_code(500);
+    exit('Invalid app/config.php');
 }
 
 $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
@@ -30,21 +35,21 @@ session_set_cookie_params([
 ]);
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
-$db = $config['db'];
-$dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', $db['host'], $db['name'], $db['charset'] ?? 'utf8mb4');
+$db = $config['db'] ?? [];
+$dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', $db['host'] ?? 'localhost', $db['name'] ?? '', $db['charset'] ?? 'utf8mb4');
 try {
-    $pdo = new PDO($dsn, $db['user'], $db['pass'], [
+    $pdo = new PDO($dsn, $db['user'] ?? '', $db['pass'] ?? '', [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
 } catch (Throwable $e) {
     http_response_code(503);
-    if (str_contains($_SERVER['REQUEST_URI'] ?? '', '/api/')) {
+    if (cc_contains($_SERVER['REQUEST_URI'] ?? '', '/api/')) {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['ok'=>false,'error'=>'Нет подключения к базе данных.'], JSON_UNESCAPED_UNICODE);
     } else {
-        echo '<!doctype html><meta charset="utf-8"><title>База данных</title><style>body{font-family:system-ui;background:#17121f;color:#fff;padding:40px;max-width:800px;margin:auto}</style><h1>Нет подключения к MySQL</h1><p>Проверьте параметры в <code>app/config.php</code> и импорт <code>schema.sql</code>.</p>';
+        echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>База данных</title><style>body{font-family:system-ui;background:#17121f;color:#fff;padding:32px;max-width:820px;margin:auto;line-height:1.55}code{background:#2b2138;padding:3px 7px;border-radius:6px}.box{padding:20px;border:1px solid #443650;border-radius:18px;background:#21182c}</style><div class="box"><h1>Нет подключения к MySQL</h1><p>Проверьте параметры в <code>app/config.php</code> и убедитесь, что <code>schema.sql</code> импортирован.</p><p>Для проверки окружения откройте <code>/health.php</code>.</p></div>';
     }
     exit;
 }
@@ -68,7 +73,7 @@ function json_input(): array {
     $data = json_decode($raw, true);
     return is_array($data) ? $data : [];
 }
-function json_response(array $payload, int $status = 200): never {
+function json_response(array $payload, int $status = 200): void {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
