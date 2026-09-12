@@ -38,3 +38,5 @@ jobs:
             echo $engine." OK\n";
           }
           '
+      - name: Report base-game math sample
+        run: php tools/simulate_math.php 1200
