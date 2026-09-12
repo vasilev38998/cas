@@ -6,11 +6,25 @@ on:
 jobs:
   checks:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: candyclub_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
+          extensions: pdo_mysql, mbstring
       - name: Lint PHP files
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Check JavaScript syntax
@@ -20,10 +34,8 @@ jobs:
           node --check sweet-arcade.js
           node --check mini-games.js
           node --check lobby.js
-          node --check game-state.js
-          node --check game-visuals.js
-          node --check game-juice.js
-          node --check game-server.js
+          node --check club.js
+          node --check site-runtime.js
       - name: Smoke test current arcade engines
         run: |
           php -r '
@@ -44,7 +56,22 @@ jobs:
           }
           require "app/mini_games.php";
           foreach([3,5,8,10] as $m){for($k=1;$k<=5;$k++){if(mini_mines_multiplier($m,$k)<=1)throw new Exception("Bad mines multiplier");}}
+          for($i=0;$i<100;$i++){if(mini_crash_point()<1)throw new Exception("Bad crash point");}
           echo "mini math OK\n";
           '
-      - name: Report base-game math sample
+      - name: Report slot math sample
         run: php tools/simulate_math.php 1200
+      - name: Report instant-game math
+        run: php tools/simulate_instant_math.php
+      - name: Prepare integration database
+        run: |
+          mysql -h127.0.0.1 -uroot -proot candyclub_test < schema.sql
+          cat > app/config.php <<'PHP'
+          <?php
+          return [
+            'db' => ['host'=>'127.0.0.1','name'=>'candyclub_test','user'=>'root','pass'=>'root','charset'=>'utf8mb4'],
+            'app' => ['name'=>'CandyClub CI','session_name'=>'candyclub_ci','starting_balance_kopecks'=>50000000,'admin_usernames'=>[],'admin_emails'=>[]],
+          ];
+          PHP
+      - name: Run database integration smoke test
+        run: php tools/integration_smoke.php
