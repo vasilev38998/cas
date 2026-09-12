@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 function site_head(string $title): void {
-    echo '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#110d19"><title>'.e($title).'</title><link rel="stylesheet" href="site.css"></head>';
+    echo '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#110d19"><title>'.e($title).'</title><link rel="stylesheet" href="site.css"><link rel="stylesheet" href="library.css"></head>';
 }
 function site_nav(?array $user): void {
     echo '<nav class="cc-nav"><div class="cc-container cc-nav-inner"><a class="cc-logo" href="index.php">Candy<span>Club</span></a><div class="cc-nav-links"><a href="index.php#games">Игры</a>';
