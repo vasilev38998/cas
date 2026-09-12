@@ -1,10 +1,10 @@
-name: PHP lint
+name: Code checks
 on:
   push:
     branches: [main]
   pull_request:
 jobs:
-  lint:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,6 +13,13 @@ jobs:
           php-version: '8.2'
       - name: Lint PHP files
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+      - name: Check JavaScript syntax
+        run: |
+          node --check arcade-game.js
+          node --check game-state.js
+          node --check game-visuals.js
+          node --check game-juice.js
+          node --check game-server.js
       - name: Smoke test original game engines
         run: |
           php -r '
