@@ -1,6 +1,5 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__.'/bootstrap.php';
 
 function mini_allowed_bets(): array { return [10,20,50,100,200,500,1000]; }
 function mini_validate_bet(int $betRub): int {
@@ -58,10 +57,28 @@ function mini_mines_multiplier(int $mines,int $safeOpened): float {
     if($prob<=0)return 0.0;
     return round(max(1.01,.96/$prob),2);
 }
+function mini_mines_store(PDO $pdo,int $userId,array $state): void {
+    $json=json_encode($state,JSON_UNESCAPED_UNICODE);
+    $pdo->prepare("INSERT INTO user_game_states(user_id,game_key,free_spins,storm_charge,multiplier_map_json) VALUES(?,'mini-mines',0,0,?) ON DUPLICATE KEY UPDATE multiplier_map_json=VALUES(multiplier_map_json),updated_at=CURRENT_TIMESTAMP")
+        ->execute([$userId,$json]);
+}
+function mini_mines_clear(PDO $pdo,int $userId): void {
+    $pdo->prepare("INSERT INTO user_game_states(user_id,game_key,free_spins,storm_charge,multiplier_map_json) VALUES(?,'mini-mines',0,0,'{}') ON DUPLICATE KEY UPDATE multiplier_map_json='{}',updated_at=CURRENT_TIMESTAMP")
+        ->execute([$userId]);
+}
+function mini_mines_get(int $userId): ?array {
+    if(!function_exists('db')) return null;
+    $q=db()->prepare("SELECT multiplier_map_json FROM user_game_states WHERE user_id=? AND game_key='mini-mines' LIMIT 1");$q->execute([$userId]);$raw=$q->fetchColumn();
+    if(!$raw)return null;$s=json_decode((string)$raw,true);
+    if(!is_array($s)||empty($s['round'])||!isset($s['board'],$s['revealed'],$s['betK'],$s['mines']))return null;
+    return $s;
+}
 function mini_mines_start(PDO $pdo,int $userId,int $betRub,int $mines): array {
     $betK=mini_validate_bet($betRub); if(!in_array($mines,[3,5,8,10],true))throw new RuntimeException('Недопустимое число мин.');
     $pdo->beginTransaction();
     try{
+        $stateQ=$pdo->prepare("SELECT multiplier_map_json FROM user_game_states WHERE user_id=? AND game_key='mini-mines' FOR UPDATE");$stateQ->execute([$userId]);$existingRaw=$stateQ->fetchColumn();
+        if($existingRaw){$existing=json_decode((string)$existingRaw,true);if(is_array($existing)&&!empty($existing['round']))throw new RuntimeException('Сначала завершите активную игру в Мины.');}
         $q=$pdo->prepare('SELECT balance_kopecks FROM users WHERE id=? FOR UPDATE');$q->execute([$userId]);$u=$q->fetch();if(!$u)throw new RuntimeException('Аккаунт не найден.');
         $before=(int)$u['balance_kopecks'];if($before<$betK)throw new RuntimeException('Недостаточно виртуальных средств.');$after=$before-$betK;
         $pdo->prepare('UPDATE users SET balance_kopecks=? WHERE id=?')->execute([$after,$userId]);
@@ -70,37 +87,47 @@ function mini_mines_start(PDO $pdo,int $userId,int $betRub,int $mines): array {
         $round=(int)$pdo->lastInsertId();wallet_entry($pdo,$userId,'game_bet',-$betK,$after,'round:'.$round,['game'=>'mini-mines','mines'=>$mines]);
         $board=array_fill(0,25,false);$pos=range(0,24);for($i=24;$i>0;$i--){$j=random_int(0,$i);[$pos[$i],$pos[$j]]=[$pos[$j],$pos[$i]];}
         foreach(array_slice($pos,0,$mines) as $p)$board[$p]=true;
-        $_SESSION['cc_mines_'.$userId]=['round'=>$round,'board'=>$board,'revealed'=>[],'betK'=>$betK,'mines'=>$mines,'balance_after_bet'=>$after,'started'=>time()];
+        $state=['round'=>$round,'board'=>$board,'revealed'=>[],'betK'=>$betK,'mines'=>$mines,'balance_after_bet'=>$after,'started'=>time()];
+        mini_mines_store($pdo,$userId,$state);
         $pdo->commit();
         return ['ok'=>true,'game'=>'mines','state'=>'active','round_id'=>$round,'bet'=>$betRub,'mines'=>$mines,'balance_after'=>$after/100,'multiplier'=>1.0,'opened'=>[]];
     }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 }
-function mini_mines_get(int $userId): ?array { $s=$_SESSION['cc_mines_'.$userId]??null; return is_array($s)?$s:null; }
 function mini_mines_reveal(PDO $pdo,int $userId,int $cell): array {
-    $s=mini_mines_get($userId);if(!$s)throw new RuntimeException('Активная игра не найдена.');if($cell<0||$cell>24)throw new RuntimeException('Некорректная клетка.');
-    if(in_array($cell,$s['revealed'],true))throw new RuntimeException('Клетка уже открыта.');
-    if(!empty($s['board'][$cell])){
-        $mineCells=[];foreach($s['board'] as $i=>$v)if($v)$mineCells[]=$i;
-        $pdo->prepare('UPDATE game_rounds SET mode=?,result_json=? WHERE id=? AND user_id=?')->execute(['lost',json_encode(['mines'=>$s['mines'],'opened'=>count($s['revealed']),'hit'=>$cell],JSON_UNESCAPED_UNICODE),(int)$s['round'],$userId]);
-        unset($_SESSION['cc_mines_'.$userId]);
-        return ['ok'=>true,'state'=>'lost','cell'=>$cell,'mine_cells'=>$mineCells,'multiplier'=>0,'win'=>0];
-    }
-    $s['revealed'][]=$cell;$_SESSION['cc_mines_'.$userId]=$s;$opened=count($s['revealed']);$mult=mini_mines_multiplier((int)$s['mines'],$opened);
-    $safe=25-(int)$s['mines'];
-    if($opened>=$safe) return mini_mines_cashout($pdo,$userId,true);
-    return ['ok'=>true,'state'=>'active','cell'=>$cell,'opened'=>$s['revealed'],'multiplier'=>$mult,'potential_win'=>round($s['betK']*$mult/100,2)];
-}
-function mini_mines_cashout(PDO $pdo,int $userId,bool $auto=false): array {
-    $s=mini_mines_get($userId);if(!$s)throw new RuntimeException('Активная игра не найдена.');$opened=count($s['revealed']);if($opened<=0)throw new RuntimeException('Откройте хотя бы одну безопасную клетку.');
-    $mult=mini_mines_multiplier((int)$s['mines'],$opened);$winK=(int)round((int)$s['betK']*$mult);
     $pdo->beginTransaction();
     try{
+        $stateQ=$pdo->prepare("SELECT multiplier_map_json FROM user_game_states WHERE user_id=? AND game_key='mini-mines' FOR UPDATE");$stateQ->execute([$userId]);$raw=$stateQ->fetchColumn();$s=$raw?json_decode((string)$raw,true):null;
+        if(!is_array($s)||empty($s['round']))throw new RuntimeException('Активная игра не найдена.');if($cell<0||$cell>24)throw new RuntimeException('Некорректная клетка.');
+        if(in_array($cell,$s['revealed'],true))throw new RuntimeException('Клетка уже открыта.');
+        if(!empty($s['board'][$cell])){
+            $mineCells=[];foreach($s['board'] as $i=>$v)if($v)$mineCells[]=$i;
+            $pdo->prepare('UPDATE game_rounds SET mode=?,result_json=? WHERE id=? AND user_id=?')->execute(['lost',json_encode(['mines'=>$s['mines'],'opened'=>count($s['revealed']),'hit'=>$cell],JSON_UNESCAPED_UNICODE),(int)$s['round'],$userId]);
+            mini_mines_clear($pdo,$userId);$pdo->commit();
+            return ['ok'=>true,'state'=>'lost','cell'=>$cell,'mine_cells'=>$mineCells,'multiplier'=>0,'win'=>0];
+        }
+        $s['revealed'][]=$cell;$opened=count($s['revealed']);$mult=mini_mines_multiplier((int)$s['mines'],$opened);$safe=25-(int)$s['mines'];
+        if($opened>=$safe){
+            $q=$pdo->prepare('SELECT balance_kopecks FROM users WHERE id=? FOR UPDATE');$q->execute([$userId]);$u=$q->fetch();if(!$u)throw new RuntimeException('Аккаунт не найден.');
+            $winK=(int)round((int)$s['betK']*$mult);$before=(int)$u['balance_kopecks'];$after=$before+$winK;$pdo->prepare('UPDATE users SET balance_kopecks=? WHERE id=?')->execute([$after,$userId]);
+            $pdo->prepare('UPDATE game_rounds SET mode=?,win_kopecks=?,balance_after_kopecks=?,result_json=? WHERE id=? AND user_id=?')->execute(['cashed',$winK,$after,json_encode(['mines'=>$s['mines'],'opened'=>$opened,'multiplier'=>$mult,'auto'=>true],JSON_UNESCAPED_UNICODE),(int)$s['round'],$userId]);
+            wallet_entry($pdo,$userId,'game_win',$winK,$after,'round:'.$s['round'],['game'=>'mini-mines','multiplier'=>$mult]);$mineCells=[];foreach($s['board'] as $i=>$v)if($v)$mineCells[]=$i;mini_mines_clear($pdo,$userId);$pdo->commit();
+            return ['ok'=>true,'state'=>'cashed','cell'=>$cell,'opened'=>$s['revealed'],'multiplier'=>$mult,'win'=>$winK/100,'balance_after'=>$after/100,'mine_cells'=>$mineCells,'auto'=>true];
+        }
+        mini_mines_store($pdo,$userId,$s);$pdo->commit();
+        return ['ok'=>true,'state'=>'active','cell'=>$cell,'opened'=>$s['revealed'],'multiplier'=>$mult,'potential_win'=>round($s['betK']*$mult/100,2)];
+    }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+}
+function mini_mines_cashout(PDO $pdo,int $userId,bool $auto=false): array {
+    $pdo->beginTransaction();
+    try{
+        $stateQ=$pdo->prepare("SELECT multiplier_map_json FROM user_game_states WHERE user_id=? AND game_key='mini-mines' FOR UPDATE");$stateQ->execute([$userId]);$raw=$stateQ->fetchColumn();$s=$raw?json_decode((string)$raw,true):null;
+        if(!is_array($s)||empty($s['round']))throw new RuntimeException('Активная игра не найдена.');$opened=count($s['revealed']);if($opened<=0)throw new RuntimeException('Откройте хотя бы одну безопасную клетку.');
+        $mult=mini_mines_multiplier((int)$s['mines'],$opened);$winK=(int)round((int)$s['betK']*$mult);
         $q=$pdo->prepare('SELECT balance_kopecks FROM users WHERE id=? FOR UPDATE');$q->execute([$userId]);$u=$q->fetch();if(!$u)throw new RuntimeException('Аккаунт не найден.');$before=(int)$u['balance_kopecks'];$after=$before+$winK;
         $pdo->prepare('UPDATE users SET balance_kopecks=? WHERE id=?')->execute([$after,$userId]);
         $pdo->prepare('UPDATE game_rounds SET mode=?,win_kopecks=?,balance_after_kopecks=?,result_json=? WHERE id=? AND user_id=?')->execute(['cashed',$winK,$after,json_encode(['mines'=>$s['mines'],'opened'=>$opened,'multiplier'=>$mult,'auto'=>$auto],JSON_UNESCAPED_UNICODE),(int)$s['round'],$userId]);
         wallet_entry($pdo,$userId,'game_win',$winK,$after,'round:'.$s['round'],['game'=>'mini-mines','multiplier'=>$mult]);
-        $mineCells=[];foreach($s['board'] as $i=>$v)if($v)$mineCells[]=$i;
-        $pdo->commit();unset($_SESSION['cc_mines_'.$userId]);
+        $mineCells=[];foreach($s['board'] as $i=>$v)if($v)$mineCells[]=$i;mini_mines_clear($pdo,$userId);$pdo->commit();
         return ['ok'=>true,'state'=>'cashed','multiplier'=>$mult,'win'=>$winK/100,'balance_after'=>$after/100,'mine_cells'=>$mineCells,'opened'=>$s['revealed']];
     }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
 }
