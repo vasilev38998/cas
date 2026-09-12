@@ -2,28 +2,27 @@
 require __DIR__.'/app/bootstrap.php';
 require __DIR__.'/app/views.php';
 require __DIR__.'/app/game_catalog.php';
-$user=current_user();$games=game_catalog();
-site_head('CandyClub — игры');
-echo '<body class="cc-site">';site_nav($user);
+require __DIR__.'/app/mini_games.php';
+$user=current_user();$games=game_catalog();$progress=$user?player_progress((int)$user['id']):null;$daily=$user?daily_reward_status(db(),(int)$user['id']):['available'=>false];
+$recent=db()->query("SELECT r.game_key,r.bet_kopecks,r.win_kopecks,r.created_at,u.username FROM game_rounds r JOIN users u ON u.id=r.user_id WHERE r.win_kopecks>0 ORDER BY r.id DESC LIMIT 8")->fetchAll();
+$todayRounds=0;if($user){$q=db()->prepare('SELECT COUNT(*) FROM game_rounds WHERE user_id=? AND created_at>=CURDATE()');$q->execute([(int)$user['id']]);$todayRounds=(int)$q->fetchColumn();}
+site_head('CandyClub — игровая экосистема');echo '<body class="cc-site">';site_nav($user);
 ?>
 <main>
-  <section class="cc-container cc-hero">
-    <div>
-      <span class="cc-kicker">8 оригинальных игр • единый аккаунт</span>
-      <h1>Один баланс. <em>Восемь разных механик.</em></h1>
-      <p>Высокая волатильность, каскады, линии, ways, липкие вайлды, hold-and-respin, расширяющиеся символы, кристальные бомбы, неоновый tumble и небесные сферы-множители. Каждая игра рассчитывается сервером и сохраняет результат в истории аккаунта.</p>
-      <div class="cc-hero-actions">
-        <?php if($user): ?><a class="cc-btn cc-btn-primary" href="game.php">Играть в Сладкий каскад</a><a class="cc-btn" href="#games">Выбрать другую игру</a>
-        <?php else: ?><a class="cc-btn cc-btn-primary" href="register.php">Создать аккаунт</a><a class="cc-btn" href="login.php">У меня уже есть аккаунт</a><?php endif; ?>
-      </div>
-    </div>
-    <a class="cc-hero-card" href="<?=$user?'game.php':'register.php'?>" aria-label="Открыть Сладкий каскад"></a>
-  </section>
-
-  <section class="cc-section" id="games"><div class="cc-container"><div class="cc-section-head"><div><h2>Библиотека игр</h2><p>Все игры используют общий виртуальный рублёвый баланс. Профиль волатильности одинаков для всех игроков.</p></div></div><div class="cc-games cc-games-library">
-  <?php foreach($games as $slug=>$g): $href=$user?$g['route']:'login.php'; ?>
-    <a class="cc-game-card" href="<?=e($href)?>"><div class="cc-game-art cc-dynamic-art" style="background:<?=e($g['accent'])?>"><span class="cc-game-icon"><?=e($g['icon'])?></span><span class="cc-game-shine"></span></div><div class="cc-game-meta"><strong><?=e($g['title'])?></strong><small><?=e($g['subtitle'])?></small></div></a>
-  <?php endforeach; ?>
-  </div></div></section>
+<section class="cc-container cc-hero-v2">
+ <div class="cc-hero-copy"><span class="cc-kicker">10 оригинальных слотов • 3 мини-игры • единый баланс</span><h1>Своя игровая <em>экосистема.</em></h1><p>Кластеры, полные ways, tumble, hold-and-respin, mystery-блоки, закрывающиеся шторки, расширяющиеся символы, накопительные множители и отдельные мини-игры. Результаты рассчитываются сервером и сохраняются в истории.</p><div class="cc-hero-actions"><?php if($user): ?><a class="cc-btn cc-btn-primary" href="play.php?game=sky-pantheon">Играть сейчас</a><a class="cc-btn" href="#slots">Все слоты</a><a class="cc-btn" href="#mini">Мини-игры</a><?php else: ?><a class="cc-btn cc-btn-primary" href="register.php">Создать аккаунт</a><a class="cc-btn" href="login.php">Войти</a><?php endif; ?></div></div>
+ <aside class="cc-dashboard-card">
+ <?php if($user): ?>
+  <div><div class="cc-level-row"><div class="cc-level-badge"><?=$progress['level']?></div><div><strong><?=e($user['username'])?></strong><small>Уровень <?=$progress['level']?> • <?=$progress['xp']?> XP</small></div></div><div class="cc-xp"><i style="width:<?=round($progress['progress'],1)?>%"></i></div><div class="cc-dashboard-stats"><div><span>Раунды</span><strong><?=number_format($progress['rounds'],0,',',' ')?></strong></div><div><span>Лучшая победа</span><strong><?=e(money_rub($progress['best_win']))?></strong></div><div><span>Баланс</span><strong><?=e(money_rub((int)$user['balance_kopecks']))?></strong></div></div></div>
+  <div class="cc-daily"><div class="cc-daily-icon">🎁</div><div><strong>Ежедневный подарок</strong><small><?=$daily['available']?'Доступен сегодня':'Сегодня уже получен'?></small></div><button id="dailyBtn" <?=$daily['available']?'':'disabled'?>><?=$daily['available']?'ЗАБРАТЬ':'ПОЛУЧЕНО'?></button></div>
+ <?php else: ?><div><div class="cc-level-row"><div class="cc-level-badge">1</div><div><strong>Гостевой режим</strong><small>Создайте аккаунт, чтобы сохранять прогресс</small></div></div><div class="cc-dashboard-stats" style="margin-top:18px"><div><span>Слоты</span><strong><?=count($games)?></strong></div><div><span>Мини-игры</span><strong>3</strong></div><div><span>Баланс</span><strong>после регистрации</strong></div></div></div><a class="cc-btn cc-btn-primary" href="register.php">Начать</a><?php endif; ?>
+ </aside>
+</section>
+<section class="cc-section" id="slots"><div class="cc-container"><div class="cc-section-head"><div><h2>Слоты</h2><p>Каждая игра имеет собственную механику, темп и бонусную логику.</p></div></div><div class="cc-toolbar"><input class="cc-search" id="gameSearch" placeholder="Найти игру или механику…"><button class="cc-filter active" data-filter="all">Все</button><button class="cc-filter" data-filter="Buy Bonus">Buy Bonus</button><button class="cc-filter" data-filter="Каскады">Каскады</button><button class="cc-filter" data-filter="favorites">★ Избранное</button></div><div class="cc-slot-grid" id="slotGrid">
+<?php foreach($games as $slug=>$g): $href=$user?$g['route']:'login.php';$tags=$g['tags']??[]; ?><a class="cc-slot-card" href="<?=e($href)?>" data-game="<?=e(mb_strtolower($g['title'].' '.$g['subtitle'].' '.implode(' ',$tags)))?>" data-tags="<?=e(implode('|',$tags))?>" data-key="<?=e($slug)?>"><div class="cc-slot-art" style="background:<?=e($g['accent'])?>"><span class="cc-slot-badge"><?=e($g['volatility']??'Высокая')?> волатильность</span><button class="cc-fav" type="button" data-fav="<?=e($slug)?>" aria-label="В избранное">★</button><span class="cc-slot-icon"><?=e($g['icon'])?></span></div><div class="cc-slot-meta"><strong><?=e($g['title'])?></strong><small><?=e($g['subtitle'])?></small><div class="cc-tags"><?php foreach($tags as $tag): ?><span><?=e($tag)?></span><?php endforeach; ?></div></div></a><?php endforeach; ?>
+</div></div></section>
+<section class="cc-section" id="mini"><div class="cc-container"><div class="cc-section-head"><div><h2>Мини-игры</h2><p>Быстрые режимы с отдельной анимацией и серверным расчётом.</p></div></div><div class="cc-mini-grid"><a class="cc-mini-card plinko" href="<?=$user?'mini.php?game=plinko':'login.php'?>"><span class="icon">●</span><div><h3>Плинко Лаб</h3><p>12 рядов пегов, редкие крайние множители и физическая траектория шарика.</p></div></a><a class="cc-mini-card mines" href="<?=$user?'mini.php?game=mines':'login.php'?>"><span class="icon">◆</span><div><h3>Кристальные мины</h3><p>5×5, четыре уровня риска и возможность забрать результат после любой безопасной клетки.</p></div></a><a class="cc-mini-card wheel" href="<?=$user?'mini.php?game=wheel':'login.php'?>"><span class="icon">◉</span><div><h3>Колесо импульса</h3><p>Десять секторов, серверный выбор результата и плавная инерционная остановка.</p></div></a></div></div></section>
+<section class="cc-section"><div class="cc-container cc-live-grid"><div class="cc-live-card"><div class="cc-section-head"><div><h2 style="font-size:22px">Последние выигрыши</h2><p>Обезличенная активность платформы.</p></div></div><div class="cc-live-list"><?php if(!$recent): ?><div class="cc-empty">Пока нет выигрышных раундов.</div><?php else: foreach($recent as $r): $name=mb_substr((string)$r['username'],0,2).'***'; ?><div class="cc-live-item"><i>✦</i><div><strong><?=e($name)?> • <?=e(str_replace(['mini-','-'],['',' '],(string)$r['game_key']))?></strong><small><?=e(date('H:i',strtotime($r['created_at'])))?> • ставка <?=e(money_rub((int)$r['bet_kopecks']))?></small></div><b>+<?=e(money_rub((int)$r['win_kopecks']))?></b></div><?php endforeach; endif; ?></div></div><div class="cc-missions"><h2 style="font-size:22px;margin-top:0">Активность сегодня</h2><?php if($user): ?><div class="cc-mission"><strong>Разминка</strong><small>Сыграйте 10 раундов сегодня</small><div class="cc-progress"><i style="width:<?=min(100,$todayRounds*10)?>%"></i></div></div><div class="cc-mission"><strong>Исследователь</strong><small>Попробуйте слот со шторками и одну мини-игру</small></div><div class="cc-mission"><strong>Ежедневный подарок</strong><small><?=$daily['available']?'Ещё доступен — заберите его в верхнем блоке.':'Сегодня выполнено.'?></small></div><?php else: ?><p class="cc-section-head" style="color:var(--cc-muted)">После регистрации здесь появится прогресс по ежедневной активности.</p><?php endif; ?></div></div></section>
 </main>
+<script>window.LOBBY_BOOT=<?=json_encode(['csrf'=>csrf_token(),'loggedIn'=>(bool)$user],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)?>;</script><script src="<?=asset_url('lobby.js')?>"></script>
 <?php site_footer(); ?>
