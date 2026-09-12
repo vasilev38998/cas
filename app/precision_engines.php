@@ -45,7 +45,7 @@ function hv3_neon(int $betK,bool $isFree,int &$free,array &$state): array {
     $grid=ag_grid($c,$r,$weights);$initial=$grid;
     $voltage=$isFree?max(1,(int)($state['voltage']??1)):1;$steps=[];$total=0;
     for($t=1;$t<=8;$t++){
-        $ev=hv_ways_eval_min($grid,$c,$r,$pay,'wild',$betK,500,$voltage,5,10);
+        $ev=hv_ways_eval_min($grid,$c,$r,$pay,'wild',$betK,500,$voltage,5,9);
         if($ev['amount']<=0)break;
         $total+=$ev['amount'];
         $grid=ag_collapse($grid,$c,$r,$ev['positions'],$weights);
@@ -57,6 +57,6 @@ function hv3_neon(int $betK,bool $isFree,int &$free,array &$state): array {
     if($free>0)$state['voltage']=$isFree?$voltage:($state['voltage']??1);else unset($state['voltage']);
     return ['win'=>$total,'payload'=>[
         'initial_grid'=>$initial,'steps'=>$steps,'feature'=>null,'free_spins_awarded'=>$award,
-        'badge'=>$isFree?'НАПРЯЖЕНИЕ ×'.max(1,(int)($state['voltage']??1)):'5/5 БАРАБАНОВ • ПЛОТНОСТЬ 10+'
+        'badge'=>$isFree?'НАПРЯЖЕНИЕ ×'.max(1,(int)($state['voltage']??1)):'5/5 БАРАБАНОВ • ПЛОТНОСТЬ 9+'
     ]];
 }
