@@ -23,5 +23,6 @@ function cc_pending_migrations(PDO $pdo): array {
     $applied=array_flip(cc_applied_migrations($pdo));return array_values(array_filter(array_keys(cc_migrations()),fn($v)=>!isset($applied[$v])));
 }
 function cc_run_pending_migrations(PDO $pdo): array {
-    cc_ensure_migration_table($pdo);$done=[];$migrations=cc_migrations();foreach(cc_pending_migrations($pdo) as $version){$fn=$migrations[$version]??null;if(!$fn)continue;$fn($pdo);$q=$pdo->prepare('INSERT IGNORE INTO schema_migrations(version) VALUES(?)');$q->execute([$version]);$done[]=$version;}return $done;
+    $locked=(int)$pdo->query("SELECT GET_LOCK('candyclub_schema_migrations',10)")->fetchColumn();if($locked!==1)throw new RuntimeException('Не удалось получить блокировку миграций. Повторите позже.');
+    try{cc_ensure_migration_table($pdo);$done=[];$migrations=cc_migrations();foreach(cc_pending_migrations($pdo) as $version){$fn=$migrations[$version]??null;if(!$fn)continue;$fn($pdo);$q=$pdo->prepare('INSERT IGNORE INTO schema_migrations(version) VALUES(?)');$q->execute([$version]);$done[]=$version;}return$done;}finally{$pdo->query("SELECT RELEASE_LOCK('candyclub_schema_migrations')")->fetchColumn();}
 }
