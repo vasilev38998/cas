@@ -18,6 +18,7 @@ CREATE TABLE wallet_transactions (
   metadata_json JSON NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_wallet_user_created (user_id, created_at),
+  INDEX idx_wallet_user_type_ref (user_id, type, reference),
   CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -45,5 +46,14 @@ CREATE TABLE game_rounds (
   result_json JSON NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_round_user_created (user_id, created_at),
+  INDEX idx_round_created (created_at),
+  INDEX idx_round_game_created (game_key, created_at),
   CONSTRAINT fk_round_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE schema_migrations (
+  version VARCHAR(100) PRIMARY KEY,
+  applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO schema_migrations(version) VALUES ('20260913_001_query_indexes');
