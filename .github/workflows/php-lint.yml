@@ -33,9 +33,11 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check arcade-symbols.js
+          node --check arcade-symbols-expansion.js
           node --check arcade-game.js
           node --check sweet-arcade.js
           node --check mini-games.js
+          node --check mini-expansion.js
           node --check lobby.js
           node --check club.js
           node --check site-runtime.js
@@ -46,7 +48,8 @@ jobs:
           require "app/precision_engines.php";
           require "app/sky_pantheon.php";
           require "app/feature_slots.php";
-          $engines=["hv_fruit","hv3_temple","hv_jungle","hv_crystal","hv_scroll","hv3_neon","hv_sky","hv_curtains","hv_mystery"];
+          require "app/expansion_slots.php";
+          $engines=["hv_fruit","hv3_temple","hv_jungle","hv_crystal","hv_scroll","hv3_neon","hv_sky","hv_curtains","hv_mystery","hv_forge_tempest","hv_lunar_beasts","hv_clockwork_shift"];
           foreach($engines as $engine){
             for($i=0;$i<40;$i++){
               $free=0;$state=[];$result=$engine(10000,false,$free,$state);
@@ -58,8 +61,11 @@ jobs:
             echo $engine." OK\n";
           }
           require "app/mini_games.php";
+          require "app/mini_expansion.php";
           foreach([3,5,8,10] as $m){for($k=1;$k<=5;$k++){if(mini_mines_multiplier($m,$k)<=1)throw new Exception("Bad mines multiplier");}}
           for($i=0;$i<100;$i++){if(mini_crash_point()<1)throw new Exception("Bad crash point");}
+          foreach(mini_dice_options() as $chance=>$mult){if($chance/100*$mult<.94)throw new Exception("Bad dice profile");}
+          for($floor=1;$floor<=8;$floor++){if(mini_tower_multiplier($floor)<=1)throw new Exception("Bad tower profile");}
           echo "mini math OK\n";
           '
       - name: Report slot math sample
@@ -91,6 +97,7 @@ jobs:
           for i in {1..20}; do curl -fsS http://127.0.0.1:8080/status.php >/tmp/status.json && break || sleep 0.25; done
           php -r '$d=json_decode(file_get_contents("/tmp/status.json"),true); if(!is_array($d)||empty($d["ok"])) throw new Exception("status not ready");'
           curl -fsS http://127.0.0.1:8080/health.php | grep -q 'Система готова к запуску'
+          curl -fsS http://127.0.0.1:8080/index.php | grep -q '13 оригинальных слотов'
           CODE=$(curl -sS -o /tmp/api.json -w '%{http_code}' -X POST http://127.0.0.1:8080/api/mini.php)
           test "$CODE" = "401"
           grep -q 'Требуется авторизация' /tmp/api.json
