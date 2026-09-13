@@ -51,6 +51,21 @@ function game_catalog(): array {
             'symbols'=>['key'=>['icon'=>'K','name'=>'Ключ'],'watch'=>['icon'=>'T','name'=>'Часы'],'ring'=>['icon'=>'R','name'=>'Кольцо'],'pearl'=>['icon'=>'P','name'=>'Жемчуг'],'gem'=>['icon'=>'G','name'=>'Сейфовый камень'],'mystery'=>['icon'=>'?','name'=>'Тайный блок'],'wild'=>['icon'=>'W','name'=>'Wild'],'scatter'=>['icon'=>'S','name'=>'Сейф-бонус']],
             'rules'=>'Все mystery-блоки одного вращения одновременно превращаются в один случайный символ. Во фриспинах mystery появляются чаще, поэтому один reveal может полностью изменить поле.'
         ],
+        'forge-tempest' => [
+            'title'=>'Грозовая кузница','subtitle'=>'6×5 • 8+ в любом месте • каскады • множитель ковки','route'=>'play.php?game=forge-tempest','theme'=>'forge','icon'=>'⚒','accent'=>'linear-gradient(135deg,#3d2020,#d86828 48%,#78bfff)','cols'=>6,'rows'=>5,'volatility'=>'Очень высокая','buy_bonus'=>95,'tags'=>['Scatter Pays','Каскады','Множитель','Buy Bonus'],
+            'symbols'=>['ember'=>['icon'=>'E','name'=>'Раскалённый слиток'],'hammer'=>['icon'=>'H','name'=>'Молот'],'rune'=>['icon'=>'R','name'=>'Руна кузницы'],'shield'=>['icon'=>'S','name'=>'Щит'],'crown'=>['icon'=>'C','name'=>'Кованая корона'],'thunder'=>['icon'=>'T','name'=>'Громовой клинок'],'wild'=>['icon'=>'W','name'=>'Искровой wild'],'scatter'=>['icon'=>'B','name'=>'Врата кузницы']],
+            'rules'=>'8+ одинаковых символов платят в любом месте поля. После каждого выигрышного каскада множитель ковки растёт. Во фриспинах текущая сила переносится на следующее вращение и может подняться до ×12.'
+        ],
+        'lunar-beasts' => [
+            'title'=>'Лунный зверинец','subtitle'=>'5×4 • 20 линий • полные wild-колонны • фазы луны','route'=>'play.php?game=lunar-beasts','theme'=>'lunar','icon'=>'☾','accent'=>'linear-gradient(135deg,#151b49,#4e4aa8 48%,#d8d6ff)','cols'=>5,'rows'=>4,'volatility'=>'Высокая','buy_bonus'=>85,'tags'=>['Линии','Expanding Wild','Фриспины','Buy Bonus'],
+            'symbols'=>['fox'=>['icon'=>'F','name'=>'Лунная лиса'],'owl'=>['icon'=>'O','name'=>'Сова'],'wolf'=>['icon'=>'W','name'=>'Серебряный волк'],'stag'=>['icon'=>'S','name'=>'Олень'],'lynx'=>['icon'=>'L','name'=>'Рысь'],'wild'=>['icon'=>'M','name'=>'Лунный wild'],'scatter'=>['icon'=>'C','name'=>'Полумесяц-бонус']],
+            'rules'=>'20 линий. В отдельных вращениях луна превращает целые барабаны в wild-колонны. Во фриспинах фаза луны растёт после каждого вращения и повышает шанс появления полных wild-колонн.'
+        ],
+        'clockwork-shift' => [
+            'title'=>'Механический импульс','subtitle'=>'5×5 • кластеры 6+ • крестовые шестерни • каскады','route'=>'play.php?game=clockwork-shift','theme'=>'clockwork','icon'=>'⚙','accent'=>'linear-gradient(135deg,#24212a,#8b653e 48%,#55c6c3)','cols'=>5,'rows'=>5,'volatility'=>'Очень высокая','buy_bonus'=>90,'tags'=>['Кластеры','Шестерни','Каскады','Buy Bonus'],
+            'symbols'=>['copper'=>['icon'=>'C','name'=>'Медный модуль'],'sapphire'=>['icon'=>'S','name'=>'Сапфировый модуль'],'emerald'=>['icon'=>'E','name'=>'Изумрудный модуль'],'ruby'=>['icon'=>'R','name'=>'Рубиновый модуль'],'clock'=>['icon'=>'T','name'=>'Хронометр'],'gear'=>['icon'=>'G','name'=>'Импульсная шестерня'],'scatter'=>['icon'=>'B','name'=>'Сердце механизма']],
+            'rules'=>'Кластеры 6+ исчезают и запускают каскад. Шестерня рядом с выигрышем очищает целую строку и колонну крестом. Во фриспинах мощность шестерней накапливается и усиливает их бонус.'
+        ],
     ];
 }
 function game_config(string $key): ?array {$all=game_catalog();return $all[$key]??null;}
