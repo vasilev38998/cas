@@ -7,9 +7,6 @@ $user=require_login(true);
 if($_SERVER['REQUEST_METHOD']!=='POST'){header('Allow: POST');json_response(['ok'=>false,'error'=>'Метод не поддерживается.'],405);}
 try{
     $uid=(int)$user['id'];cc_rate_limit('mini:'.$uid,180,60);$d=json_input();verify_csrf($_SERVER['HTTP_X_CSRF_TOKEN']??($d['csrf']??null));$game=(string)($d['game']??'');$action=(string)($d['action']??'play');$requestId=cc_request_id($d);$scope='mini:'.$game.':'.$action;
-    $result=cc_idempotent_execute($uid,$scope,$requestId,function() use($pdo,$uid,$d,$game,$action){return [];});
-}catch(Error $ignored){}
-try{
     $operation=function() use($uid,$d,$game,$action): array {
         if($game==='plinko'&&$action==='play')return mini_plinko(db(),$uid,(int)($d['bet']??100));
         if($game==='wheel'&&$action==='play')return mini_wheel(db(),$uid,(int)($d['bet']??100));
