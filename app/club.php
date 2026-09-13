@@ -6,8 +6,12 @@ const CC_PROFILE_STATE_KEY='__profile__';
 function cc_profile_defaults(): array {
     return ['favorites'=>[],'controls'=>['max_bet_rub'=>0,'session_reminder_minutes'=>60,'pause_until'=>0],'adult_confirmed_at'=>null];
 }
+function cc_profile_state_ensure(PDO $pdo,int $userId): void {
+    $json=json_encode(cc_profile_defaults(),JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    $pdo->prepare("INSERT IGNORE INTO user_game_states(user_id,game_key,free_spins,storm_charge,multiplier_map_json) VALUES(?,?,0,0,?)")->execute([$userId,CC_PROFILE_STATE_KEY,$json]);
+}
 function cc_profile_state(int $userId,bool $forUpdate=false,?PDO $pdo=null): array {
-    $pdo=$pdo?:db();$sql='SELECT multiplier_map_json FROM user_game_states WHERE user_id=? AND game_key=? LIMIT 1'.($forUpdate?' FOR UPDATE':'');
+    $pdo=$pdo?:db();if($forUpdate)cc_profile_state_ensure($pdo,$userId);$sql='SELECT multiplier_map_json FROM user_game_states WHERE user_id=? AND game_key=? LIMIT 1'.($forUpdate?' FOR UPDATE':'');
     $q=$pdo->prepare($sql);$q->execute([$userId,CC_PROFILE_STATE_KEY]);$raw=$q->fetchColumn();$state=$raw?json_decode((string)$raw,true):[];if(!is_array($state))$state=[];$state=array_replace_recursive(cc_profile_defaults(),$state);
     if(!is_array($state['favorites']))$state['favorites']=[];$state['favorites']=array_values(array_unique(array_filter(array_map('strval',$state['favorites']))));return$state;
 }
@@ -52,5 +56,7 @@ function cc_achievements(int $userId): array {
     $q=db()->prepare("SELECT COUNT(*) rounds,COUNT(DISTINCT game_key) games,COALESCE(MAX(CASE WHEN bet_kopecks>0 THEN win_kopecks/bet_kopecks ELSE 0 END),0) best_mult,SUM(CASE WHEN game_key LIKE 'mini-%' THEN 1 ELSE 0 END) mini_rounds,SUM(CASE WHEN mode IN ('buy_bonus','buy_super') THEN 1 ELSE 0 END) buys FROM game_rounds WHERE user_id=?");$q->execute([$userId]);$s=$q->fetch()?:[];$rounds=(int)($s['rounds']??0);$games=(int)($s['games']??0);$best=(float)($s['best_mult']??0);$mini=(int)($s['mini_rounds']??0);$buys=(int)($s['buys']??0);
     return[['icon'=>'✦','title'=>'Первый запуск','description'=>'Сыграть первый раунд','done'=>$rounds>=1,'progress'=>min(1,$rounds).'/1'],['icon'=>'⚡','title'=>'Сотня','description'=>'Сыграть 100 раундов','done'=>$rounds>=100,'progress'=>min(100,$rounds).'/100'],['icon'=>'🧭','title'=>'Исследователь','description'=>'Попробовать 5 разных игр','done'=>$games>=5,'progress'=>min(5,$games).'/5'],['icon'=>'◆','title'=>'Коллекционер','description'=>'Попробовать 10 разных игр','done'=>$games>=10,'progress'=>min(10,$games).'/10'],['icon'=>'×10','title'=>'Большой множитель','description'=>'Получить выигрыш ×10+','done'=>$best>=10,'progress'=>number_format(min(10,$best),1).'×/10×'],['icon'=>'●','title'=>'Аркадник','description'=>'Сыграть мини-игру','done'=>$mini>=1,'progress'=>min(1,$mini).'/1'],['icon'=>'B','title'=>'Охотник за бонусами','description'=>'Купить бонусный режим','done'=>$buys>=1,'progress'=>min(1,$buys).'/1'],['icon'=>'∞','title'=>'Тысяча','description'=>'Сыграть 1000 раундов','done'=>$rounds>=1000,'progress'=>min(1000,$rounds).'/1000']];
 }
-function cc_weekly_leaderboard(int $limit=20): array {$limit=max(3,min(50,$limit));$sql="SELECT u.username,COUNT(*) rounds,MAX(CASE WHEN r.bet_kopecks>0 THEN r.win_kopecks/r.bet_kopecks ELSE 0 END) best_mult,MAX(r.win_kopecks) best_win FROM game_rounds r JOIN users u ON u.id=r.user_id WHERE YEARWEEK(r.created_at,1)=YEARWEEK(CURDATE(),1) GROUP BY r.user_id,u.username HAVING best_mult>0 ORDER BY best_mult DESC,best_win DESC LIMIT {$limit}";return db()->query($sql)->fetchAll();}
+function cc_weekly_leaderboard(int $limit=20): array {
+    $limit=max(3,min(50,$limit));$sql="SELECT u.username,COUNT(*) rounds,MAX(CASE WHEN r.bet_kopecks>0 THEN r.win_kopecks/r.bet_kopecks ELSE 0 END) best_mult,MAX(r.win_kopecks) best_win FROM game_rounds r JOIN users u ON u.id=r.user_id WHERE r.created_at>=DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY) AND r.created_at<DATE_ADD(DATE_SUB(CURDATE(),INTERVAL WEEKDAY(CURDATE()) DAY),INTERVAL 7 DAY) GROUP BY r.user_id,u.username HAVING best_mult>0 ORDER BY best_mult DESC,best_win DESC LIMIT {$limit}";return db()->query($sql)->fetchAll();
+}
 function cc_mask_name(string $name): string {$len=mb_strlen($name);if($len<=2)return mb_substr($name,0,1).'***';return mb_substr($name,0,2).'***'.($len>6?mb_substr($name,-1):'');}
