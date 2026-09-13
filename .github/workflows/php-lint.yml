@@ -80,3 +80,14 @@ jobs:
           mysql -N -h127.0.0.1 -uroot -proot candyclub_test -e "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema=DATABASE() AND index_name IN ('idx_round_created','idx_round_game_created','idx_wallet_user_type_ref');" | grep -qx 3
       - name: Run database integration smoke test
         run: php tools/integration_smoke.php
+      - name: Run HTTP readiness smoke test
+        run: |
+          php -S 127.0.0.1:8080 >/tmp/candyclub-http.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in {1..20}; do curl -fsS http://127.0.0.1:8080/status.php >/tmp/status.json && break || sleep 0.25; done
+          php -r '$d=json_decode(file_get_contents("/tmp/status.json"),true); if(!is_array($d)||empty($d["ok"])) throw new Exception("status not ready");'
+          curl -fsS http://127.0.0.1:8080/health.php | grep -q 'Система готова к запуску'
+          CODE=$(curl -sS -o /tmp/api.json -w '%{http_code}' -X POST http://127.0.0.1:8080/api/mini.php)
+          test "$CODE" = "401"
+          grep -q 'Требуется авторизация' /tmp/api.json
