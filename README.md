@@ -1,10 +1,10 @@
 # CandyClub — игровая экосистема на PHP/MySQL
 
-CandyClub — самостоятельная браузерная игровая платформа с аккаунтами, единым **виртуальным** балансом, десятью оригинальными слотами, четырьмя мини-играми, клубной системой, миссиями, достижениями, рейтингом, игровыми ограничениями, админ-аналитикой и серверным журналом каждого раунда.
+CandyClub — самостоятельная браузерная игровая платформа с аккаунтами, единым **виртуальным** балансом, десятью оригинальными слотами, четырьмя мини-играми, клубной системой, миссиями, достижениями, рейтингом, персональными игровыми ограничениями, админ-аналитикой и серверным журналом каждого раунда.
 
 > Текущая версия использует только виртуальный баланс. Реальные платежи, вывод средств и платёжные провайдеры не подключены.
 
-## Что входит в проект
+## Игровой каталог
 
 ### 10 оригинальных слотов
 
@@ -19,210 +19,167 @@ CandyClub — самостоятельная браузерная игровая
 9. **Бархатные шторки** — 5×4, физически закрывающиеся барабаны с reveal-механикой.
 10. **Хранилище тайн** — 5×4, mystery-блоки, одновременно превращающиеся в один символ.
 
-У большинства слотов есть **Bonus Buy**. Покупка является серверным режимом: виртуальная стоимость списывается внутри MySQL-транзакции, а операция записывается в `game_rounds` и `wallet_transactions`.
+У большинства слотов есть Bonus Buy. Стоимость списывается внутри MySQL-транзакции, а операция журналируется в `game_rounds` и `wallet_transactions`.
 
 ### 4 мини-игры
 
-- **Плинко Лаб** — 12 рядов, серверная траектория и множители до ×16. Симметричная математическая модель имеет инженерный theoretical EV около `0.9598x`.
-- **Кристальные мины** — 5×5, 3/5/8/10 мин, комбинаторный множитель и cash-out после безопасных клеток. Активная партия хранится в MySQL и переживает обновление страницы.
-- **Колесо импульса** — 10 взвешенных секторов и серверно рассчитанный результат; инженерный weighted EV около `0.9290x`.
-- **Ракетный импульс** — crash-режим с заранее выбранным авто-выходом ×1.2/×1.5/×2/×3/×5/×10. Сервер заранее рассчитывает точку сбоя; целевой профиль около `0.96x` на разрешённых целях.
+- **Плинко Лаб** — 12 рядов и множители до ×16. Инженерный theoretical EV около `0.9598x`.
+- **Кристальные мины** — 5×5, 3/5/8/10 мин, комбинаторный множитель и cash-out. Активная партия хранится в MySQL и восстанавливается после обновления страницы.
+- **Колесо импульса** — 10 взвешенных секторов; инженерный weighted EV около `0.9290x`.
+- **Ракетный импульс** — crash-режим с авто-выходом ×1.2/×1.5/×2/×3/×5/×10 и целевым профилем около `0.96x`.
 
-Эти числа — инженерная проверка текущей математики, а не сертифицированный RTP.
+Эти значения — инженерная проверка текущей математики, а не сертифицированный RTP.
 
 ## Клуб игрока
 
-`/club.php` объединяет мета-прогресс проекта:
+`/club.php` объединяет мета-прогресс:
 
-- дивизионы Starter / Bronze / Silver / Gold / Platinum / Diamond;
-- уровень и XP;
+- Starter / Bronze / Silver / Gold / Platinum / Diamond;
+- XP и уровни;
 - ежедневные серверные миссии;
-- виртуальные награды за выполненные миссии;
+- виртуальные награды;
 - постоянные достижения;
-- недельный лидерборд по **лучшему множителю**, а не по размеру ставки;
+- недельный leaderboard по лучшему множителю;
 - последние игры аккаунта;
 - персональные игровые ограничения.
 
-### Ежедневные миссии
-
-Текущие миссии рассчитываются только из серверной истории `game_rounds`:
-
-- 10 раундов;
-- 3 разные игры;
-- выигрыш ×5+;
-- хотя бы одна мини-игра.
-
-Награда выдаётся один раз за день и журналируется типом `mission_reward`.
+Ежедневные миссии рассчитываются из серверной истории `game_rounds`: количество раундов, разные игры, ×5+ и участие в mini-game. Награда выдаётся один раз и журналируется типом `mission_reward`.
 
 ## Игровые ограничения
 
-В клубе игрок может самостоятельно установить:
+Игрок может установить:
 
 - максимальную базовую ставку;
-- напоминание о длительности сессии: 15/30/60/120 минут;
-- игровую паузу: 1 час, 24 часа или 7 дней.
+- session reminder через 15/30/60/120 минут;
+- игровую паузу на 1 час, 24 часа или 7 дней.
 
-Лимит ставки и пауза проверяются **на сервере**, поэтому изменение JavaScript в браузере их не обходит. Игровую паузу нельзя снять раньше выбранного срока через интерфейс. При активной Mines-сессии cash-out остаётся доступен, чтобы уже открытый безопасный результат не оказался заблокирован.
+Лимит ставки и пауза проверяются сервером. Игровую паузу нельзя снять раньше выбранного срока через интерфейс. При активной Mines-сессии cash-out уже открытого безопасного результата остаётся доступен.
 
-## Лобби
+## Лобби и UX
 
-Главная страница содержит:
+Главная страница содержит поиск, фильтры, серверное избранное, «Продолжить игру», ежедневный подарок, прогресс дивизиона, миссии и обезличенную ленту последних выигрышей.
 
-- полный каталог игр;
-- поиск по названию и механике;
-- фильтры;
-- синхронизируемое с аккаунтом избранное;
-- блок «Продолжить игру» по серверной истории;
-- 4 mini-game карточки;
-- ежедневный подарок;
-- прогресс дивизиона;
-- тизер миссий;
-- обезличенную ленту последних выигрышей.
+Игровой shell поддерживает Spin / Auto / Turbo / Sound / Fullscreen, Big/Mega/Epic Win, разные motion profiles, WebAudio, haptic feedback, `prefers-reduced-motion`, остановку Auto при скрытии вкладки и offline indicator.
 
-Для гостя избранное может использовать localStorage; после входа авторизованное избранное хранится на сервере.
-
-## Интерфейс слотов
-
-Все слоты используют единый responsive shell:
-
-- одинаковая навигация и control panel;
-- Spin / Auto / Turbo / Sound;
-- Fullscreen;
-- Bonus Buy там, где он предусмотрен;
-- Big Win / Mega Win / Epic Win;
-- индивидуальные motion profiles и WebAudio-палитры;
-- haptic feedback на совместимых мобильных устройствах;
-- `prefers-reduced-motion` для пользователей, которые отключают анимации;
-- остановка Auto при скрытии вкладки;
-- отображение ID раунда и короткой технической квитанции результата.
-
-`round_receipt` предназначен для поиска/сопоставления раунда в поддержке. Это **не provably-fair proof** и не заменяет сертификацию RNG.
-
-## Мобильные символы
-
-Игровые символы рисуются собственными inline-SVG в `arcade-symbols.js`. Рендерер не использует системные emoji внутри барабанов и имеет SVG fallback вместо букв.
-
-Все основные CSS/JS подключаются через `asset_url()`, добавляющий версию по `filemtime`, чтобы мобильные браузеры не продолжали использовать старую закэшированную версию после обновления.
+Игровые символы рисуются собственными inline-SVG в `arcade-symbols.js`; системные emoji внутри барабанов не используются. CSS/JS подключаются через `asset_url()` с версией по `filemtime`, чтобы мобильные браузеры не держали старые assets после обновления.
 
 ## Аккаунт и приватность
 
-Регистрация требует:
-
-- уникальный логин/email;
-- пароль 10–128 символов, содержащий букву и цифру;
-- подтверждение возраста 18+.
+Регистрация требует уникальный логин/email, пароль 10–128 символов с буквой и цифрой и подтверждение возраста 18+.
 
 Дополнительно доступны:
 
 - смена пароля с подтверждением текущего;
 - JSON-экспорт собственных данных через `account-export.php`;
-- необратимое самоудаление аккаунта с повторным вводом пароля и фразы `УДАЛИТЬ`.
+- необратимое самоудаление аккаунта с паролем и фразой `УДАЛИТЬ`.
 
-Удаление пользователя каскадно удаляет связанные `wallet_transactions`, `game_rounds` и `user_game_states` благодаря внешним ключам схемы.
+Экспорт специально проходит через `app/privacy.php`: если у игрока есть активная Mines-партия, в экспорт попадают номер раунда, ставка, количество мин и уже открытые клетки, но **не попадает скрытая карта `board`**. Это отдельно проверяется интеграционным тестом.
+
+Удаление пользователя каскадно удаляет связанные `wallet_transactions`, `game_rounds` и `user_game_states` благодаря внешним ключам.
 
 ## Серверная безопасность
 
-В текущем коде реализованы:
+Реализованы:
 
-- PDO с отключёнными emulated prepares;
-- `password_hash()` / `password_verify()` и автоматический rehash при входе;
+- PDO без emulated prepares;
+- `password_hash()` / `password_verify()` и password rehash;
 - `session.use_strict_mode`;
 - HttpOnly / SameSite session cookie;
+- ротация ID авторизованной сессии по умолчанию каждые 30 минут;
+- завершение авторизованной сессии после 12 часов бездействия по умолчанию;
 - `session_regenerate_id(true)` после входа, регистрации и смены пароля;
-- CSRF для форм и игровых POST API;
-- лимит JSON request body;
-- rate limiting для login/register/game APIs/admin writes;
+- CSRF для форм и POST API;
+- корректные `419`, `413`, `429` и `405` для соответствующих API-ошибок;
+- `Retry-After` при rate limiting;
+- лимит размера JSON body;
+- rate limiting для login/register/game APIs/admin/export;
 - server-side stake limits;
-- request-id idempotency для игровых API;
+- request-id idempotency в рамках PHP-сессии;
 - MySQL transactions и `SELECT ... FOR UPDATE` на балансовых операциях;
-- CSP, HSTS на HTTPS, `nosniff`, `SAMEORIGIN`, Referrer Policy и Permissions Policy;
-- запрет прямого доступа к каталогу `app/`;
-- отключённый directory listing;
-- запрет HTTP-раздачи `.sql`, `.md`, `.log`, `.ini`;
-- asset cache busting;
-- offline-индикатор в браузере.
+- сериализация первой записи profile state, чтобы одновременное сохранение favorites/controls не теряло данные;
+- CSP, HSTS на HTTPS, `nosniff`, `SAMEORIGIN`, Referrer Policy, Permissions Policy;
+- COOP / CORP / Origin-Agent-Cluster;
+- запрет прямого доступа к `app/`;
+- запрет directory listing и HTTP-раздачи служебных файлов.
 
-Идемпотентность в текущей версии хранится в PHP-сессии на короткое время и защищает от повторной обработки одного и того же `request_id` в рамках сессии. Для большого горизонтально масштабируемого real-money backend это нужно было бы заменить централизованным idempotency store.
+Идемпотентность сейчас хранится в PHP-сессии на короткое время. Для горизонтально масштабируемого real-money backend её нужно заменить централизованным idempotency store и связать с транзакцией раунда.
 
-## Серверная архитектура
+## Сессии
 
-Ключевые файлы:
-
-- `app/bootstrap.php` — bootstrap, DB, session/security, rate limit/idempotency helpers;
-- `app/club.php` — клуб, миссии, достижения, дивизионы, leaderboard и play controls;
-- `app/game_catalog.php` — каталог слотов;
-- `app/high_volatility_engines.php` — основные high-volatility slot engines;
-- `app/precision_engines.php` — Temple/Neon;
-- `app/sky_pantheon.php` — Sky Pantheon;
-- `app/feature_slots.php` — Curtains/Mystery/Bonus Buy helpers;
-- `app/sweet_cascade.php` — Sweet Cascade;
-- `app/arcade_v2.php` — общий серверный slot router;
-- `app/mini_games.php` — Plinko/Wheel/Mines/Crash/Daily Gift;
-- `api/game/arcade-spin.php` — общий API слотов;
-- `api/game/sweet-cascade/spin.php` — Sweet API;
-- `api/mini.php` — mini-game API;
-- `api/club.php` — favorites/missions/controls API;
-- `club.php` / `club.js` — клубный интерфейс;
-- `arcade-game.js` / `sweet-arcade.js` — игровые клиенты;
-- `mini-games.js` — mini-game клиент;
-- `site-runtime.js` — session reminder / pause / connectivity runtime;
-- `admin.php` — виртуальная экономика и техническая аналитика.
-
-Старые прототипные `game-state.js`, `game-visuals.js`, `game-juice.js`, `game-server.js`, `board.css` и `controls.css` удалены как неиспользуемый технический долг.
-
-## Админ-панель
-
-Администратор определяется локальным `app/config.php`:
+В `app/config.php` можно переопределить:
 
 ```php
 'app' => [
-    // ...
-    'admin_usernames' => ['my_admin_login'],
-    'admin_emails' => ['admin@example.com'],
-],
+    'session_idle_timeout_seconds' => 43200, // 12 часов
+    'session_rotate_seconds' => 1800,        // 30 минут
+]
 ```
 
-`admin.php` показывает:
+## Миграции базы данных
 
-- пользователей;
-- общее и сегодняшнее число раундов;
-- виртуальный turnover и выигрыши;
-- наблюдаемый return;
-- аналитику по каждой игре;
-- лучший фактический множитель;
-- отрицательные балансы как integrity-check;
-- активные Mines-сессии;
-- последние раунды;
-- поиск пользователя;
-- журналируемую корректировку виртуального баланса.
+Проект теперь имеет версионированную систему миграций:
 
-Наблюдаемый return в админке — статистика фактической выборки, а не заявленный/сертифицированный RTP.
+- `app/migrations.php` — список миграций;
+- `schema_migrations` — журнал уже применённых версий;
+- `tools/migrate.php` — CLI-запуск;
+- `admin.php` — показывает ожидающие миграции и позволяет применить их одной кнопкой;
+- MySQL advisory lock не позволяет двум процессам миграции выполняться одновременно.
+
+Первая миграция добавляет индексы для leaderboard, аналитики и поиска wallet references. Недельный leaderboard использует индексируемый диапазон дат вместо `YEARWEEK(created_at)`.
+
+## Диагностика
+
+- `/health.php` — подробная страница проверки PHP, расширений, обязательных модулей, MySQL, таблиц и ожидающих миграций.
+- `/status.php` — компактный JSON readiness endpoint для uptime monitoring. Возвращает HTTP 200 только когда БД, схема и миграции готовы; иначе 503.
+
+## Админ-панель
+
+Администратор задаётся в локальном `app/config.php`:
+
+```php
+'app' => [
+    'admin_usernames' => ['my_admin_login'],
+    'admin_emails' => ['admin@example.com'],
+]
+```
+
+`admin.php` показывает пользователей, число раундов, turnover, выигрыши, наблюдаемый return, аналитику по каждой игре, максимальные множители, отрицательные балансы, активные Mines-сессии, последние раунды, поиск пользователя и журналируемую корректировку виртуального баланса. Там же доступно применение ожидающих миграций.
+
+Наблюдаемый return — статистика фактической выборки, а не сертифицированный RTP.
+
+## Ключевые файлы
+
+- `app/bootstrap.php` — DB, session/security, rate limiting и общие helpers;
+- `app/club.php` — клуб, missions, achievements, leaderboard и play controls;
+- `app/privacy.php` — безопасная подготовка пользовательского экспорта;
+- `app/migrations.php` — versioned DB migrations;
+- `app/game_catalog.php` — каталог слотов;
+- `app/high_volatility_engines.php`, `app/precision_engines.php`, `app/sky_pantheon.php`, `app/feature_slots.php` — slot engines;
+- `app/sweet_cascade.php` — Sweet Cascade;
+- `app/arcade_v2.php` — общий slot router;
+- `app/mini_games.php` — Plinko/Wheel/Mines/Crash/Daily Gift;
+- `api/game/arcade-spin.php`, `api/game/sweet-cascade/spin.php`, `api/mini.php`, `api/club.php` — API;
+- `arcade-game.js`, `sweet-arcade.js`, `mini-games.js`, `site-runtime.js` — игровые runtime;
+- `admin.php`, `health.php`, `status.php` — эксплуатация и диагностика.
+
+Старые прототипные `game-state.js`, `game-visuals.js`, `game-juice.js`, `game-server.js`, `board.css` и `controls.css` удалены.
 
 ## Автоматические проверки
 
-GitHub Actions теперь поднимает настоящий **MySQL 8.0** и выполняет несколько уровней проверки:
+GitHub Actions поднимает настоящий **MySQL 8.0** и выполняет:
 
 1. PHP lint всех `.php`.
-2. `node --check` актуальных JS-runtime файлов.
+2. `node --check` актуальных JS runtime.
 3. Smoke-test всех slot engines.
-4. Проверка Mines/Crash helper math.
-5. `tools/simulate_math.php` — выборка slot math.
-6. `tools/simulate_instant_math.php` — theoretical sanity report для Plinko/Wheel/Crash/Mines.
-7. Импорт `schema.sql` в чистую MySQL.
-8. `tools/integration_smoke.php` создаёт временного пользователя и реально выполняет:
-   - обычный slot spin;
-   - Sweet Cascade spin;
-   - Plinko;
-   - Wheel;
-   - Crash;
-   - Mines start/reveal/cashout;
-   - daily gift;
-   - server favorites;
-   - stake limit;
-   - проверку журналов;
-   - удаление тестового пользователя.
+4. Mines/Crash helper math.
+5. `tools/simulate_math.php`.
+6. `tools/simulate_instant_math.php`.
+7. Импорт чистого `schema.sql`.
+8. Тест upgrade-path: новые индексы удаляются, migration marker снимается, затем `tools/migrate.php` должен восстановить схему.
+9. `tools/integration_smoke.php` создаёт временного пользователя и реально выполняет slot spin, Sweet, Plinko, Wheel, Crash, Mines, daily gift, favorites, stake limits, wallet/round journals и privacy-redaction активного Mines.
+10. Тестовый пользователь удаляется.
 
-Успешный интеграционный прогон заканчивается строкой `INTEGRATION_SMOKE_OK`.
+Успешный интеграционный прогон заканчивается `INTEGRATION_SMOKE_OK`.
 
 ## Чистая установка
 
@@ -230,46 +187,29 @@ GitHub Actions теперь поднимает настоящий **MySQL 8.0** 
 2. Импортировать `schema.sql`.
 3. Скопировать `app/config.example.php` в `app/config.php`.
 4. Заполнить `host`, `name`, `user`, `pass`.
-5. При необходимости указать `admin_usernames` / `admin_emails`.
+5. Указать `admin_usernames` / `admin_emails` при необходимости.
 6. Загрузить проект в корень сайта.
-7. Использовать PHP **8.2+**.
-8. Включить HTTPS.
-9. Открыть `/health.php`.
-10. Создать аккаунт и выполнить production smoke-test.
+7. Использовать PHP **8.2+** и HTTPS.
+8. Открыть `/health.php` — все пункты должны быть зелёными.
+9. Создать аккаунт и выполнить production smoke-test.
 
 `app/config.php` находится в `.gitignore` и не должен попадать в публичный Git.
 
 ## Обновление существующей установки
 
-Для обновления предыдущей CandyClub:
-
 1. Сделать резервную копию файлов и БД.
 2. Загрузить актуальный `main` поверх существующего проекта.
-3. **Не удалять существующий `app/config.php`.**
-4. При необходимости добавить в него `admin_usernames` / `admin_emails`.
-5. Повторный импорт `schema.sql` для этого обновления **не требуется**: клуб, favorites, controls, pause и Mines используют уже существующую `user_game_states`.
-6. Убедиться, что на хостинге PHP 8.2+.
-7. Очистить внешний CDN/cache, если он используется. Browser assets имеют автоматический version query.
-8. Открыть `/health.php`.
-9. Проверить login → lobby → slot → Bonus Buy → Sweet → Plinko → Mines refresh/cashout → Wheel → Crash → Club → Mission claim → Account → Admin.
+3. **Не удалять `app/config.php`.**
+4. При желании добавить новые session settings из `app/config.example.php`; без них используются безопасные defaults.
+5. Открыть `/admin.php` и нажать «Применить миграции» либо выполнить `php tools/migrate.php`.
+6. Повторно открыть `/health.php` и убедиться, что «Миграции БД — Актуальны».
+7. Очистить внешний CDN/cache, если он используется.
+8. Проверить login → lobby → slot → Bonus Buy → Sweet → Plinko → Mines refresh/cashout → Wheel → Crash → Club → Mission claim → Account export → Admin.
 
-## Что ещё требуется перед real-money эксплуатацией
+**Не импортируйте `schema.sql` поверх существующей рабочей базы** как способ обновления. Для обновлений теперь используются миграции.
 
-Текущий проект — законченная виртуальная игровая платформа и хорошая продуктовая основа, но **не лицензированный real-money casino backend**.
+## Перед real-money эксплуатацией
 
-Перед подключением реальных пополнений/выводов отдельно потребуются как минимум:
-
-- юридическая модель и лицензирование по целевым рынкам;
-- KYC/AML;
-- responsible-gaming policy и регуляторные ограничения;
-- сертифицированная RNG/математика и независимый аудит;
-- полноценный double-entry payment ledger;
-- antifraud/risk engine;
-- PSP/acquirer integration;
-- withdrawal review/limits;
-- централизованный idempotency store;
-- audit logs регуляторного уровня;
-- security review, secrets management, backups и incident response;
-- privacy/legal documents, retention policy и support workflow.
+Текущий проект — виртуальная игровая платформа, а не лицензированный real-money casino backend. Перед реальными пополнениями/выводами отдельно потребуются юридическая модель и лицензирование, KYC/AML, responsible-gaming policy, сертифицированная RNG/математика, независимый аудит, полноценный double-entry ledger, antifraud, PSP/acquirer integration, withdrawal controls, централизованная idempotency, регуляторные audit logs, secrets management, backups, incident response, retention/privacy документы и support workflow.
 
 Не подключайте реальные деньги к текущему виртуальному контуру как к «последнему небольшому шагу»: это отдельный инфраструктурный и регуляторный этап.
