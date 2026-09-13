@@ -9,6 +9,9 @@ header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
 header('X-Permitted-Cross-Domain-Policies: none');
+header('Cross-Origin-Opener-Policy: same-origin');
+header('Cross-Origin-Resource-Policy: same-origin');
+header('Origin-Agent-Cluster: ?1');
 header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'");
 header('Cache-Control: private, no-store, max-age=0');
 header('Pragma: no-cache');
@@ -21,12 +24,17 @@ if(!is_file($configFile)){
     exit;
 }
 $config=require $configFile;if(!is_array($config)){http_response_code(500);exit('Invalid app/config.php');}
+$appCfg=$config['app']??[];
 
 ini_set('session.use_strict_mode','1');
 ini_set('session.use_only_cookies','1');
-session_name((string)($config['app']['session_name']??'candyclub_session'));
+session_name((string)($appCfg['session_name']??'candyclub_session'));
 session_set_cookie_params(['lifetime'=>0,'path'=>'/','secure'=>$isHttps,'httponly'=>true,'samesite'=>'Lax']);
 if(session_status()!==PHP_SESSION_ACTIVE)session_start();
+$now=time();$idle=max(900,min(604800,(int)($appCfg['session_idle_timeout_seconds']??43200)));$rotate=max(300,min(7200,(int)($appCfg['session_rotate_seconds']??1800)));
+if(!empty($_SESSION['user_id'])){
+    $last=(int)($_SESSION['last_activity']??$now);if($now-$last>$idle){$_SESSION=[];session_regenerate_id(true);}else{if($now-(int)($_SESSION['last_regenerated']??0)>=$rotate){session_regenerate_id(true);$_SESSION['last_regenerated']=$now;}$_SESSION['last_activity']=$now;}
+}
 
 $db=$config['db']??[];$dsn=sprintf('mysql:host=%s;dbname=%s;charset=%s',$db['host']??'localhost',$db['name']??'',$db['charset']??'utf8mb4');
 try{$pdo=new PDO($dsn,$db['user']??'',$db['pass']??'',[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);}
