@@ -89,8 +89,10 @@ jobs:
           mysql -N -h127.0.0.1 -uroot -proot candyclub_test -e "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema=DATABASE() AND index_name IN ('idx_round_created','idx_round_game_created','idx_wallet_user_type_ref');" | grep -qx 3
           mysql -N -h127.0.0.1 -uroot -proot candyclub_test -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='request_idempotency';" | grep -qx 1
           mysql -N -h127.0.0.1 -uroot -proot candyclub_test -e "SELECT COUNT(*) FROM schema_migrations WHERE version IN ('20260913_001_query_indexes','20260913_002_request_idempotency');" | grep -qx 2
-      - name: Run database integration smoke test
+      - name: Run base database integration smoke test
         run: php tools/integration_smoke.php
+      - name: Run expansion integration smoke test
+        run: php tools/integration_expansion.php
       - name: Run HTTP readiness smoke test
         run: |
           php -S 127.0.0.1:8080 >/tmp/candyclub-http.log 2>&1 &
