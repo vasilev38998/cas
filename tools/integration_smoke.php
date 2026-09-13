@@ -4,6 +4,7 @@ require dirname(__DIR__).'/app/bootstrap.php';
 require dirname(__DIR__).'/app/arcade_v2.php';
 require dirname(__DIR__).'/app/sweet_cascade.php';
 require dirname(__DIR__).'/app/mini_games.php';
+require dirname(__DIR__).'/app/privacy.php';
 
 function smoke_assert(bool $ok,string $message): void {if(!$ok)throw new RuntimeException($message);}
 $pdo=db();$name='ci_'.bin2hex(random_bytes(4));$email=$name.'@example.test';$uid=0;
@@ -17,7 +18,9 @@ try{
     $wheel=mini_wheel($pdo,$uid,100);smoke_assert(isset($wheel['segment'],$wheel['multiplier']),'wheel failed');echo "wheel OK\n";
     $crash=mini_crash($pdo,$uid,100,2.0);smoke_assert(isset($crash['crash_point'],$crash['success'])&&$crash['crash_point']>=1,'crash failed');echo "crash OK @ {$crash['crash_point']}x\n";
 
-    $mines=mini_mines_start($pdo,$uid,100,5);smoke_assert(($mines['state']??'')==='active','mines start failed');$state=mini_mines_get($uid);smoke_assert(is_array($state)&&count($state['board'])===25,'mines state failed');$safe=null;foreach($state['board'] as $i=>$mine){if(!$mine){$safe=(int)$i;break;}}smoke_assert($safe!==null,'no safe cell');$reveal=mini_mines_reveal($pdo,$uid,$safe);smoke_assert(in_array($reveal['state'],['active','cashed'],true),'mines reveal failed');if($reveal['state']==='active'){$cash=mini_mines_cashout($pdo,$uid);smoke_assert(($cash['state']??'')==='cashed'&&$cash['win']>0,'mines cashout failed');}echo "mines OK\n";
+    $mines=mini_mines_start($pdo,$uid,100,5);smoke_assert(($mines['state']??'')==='active','mines start failed');$state=mini_mines_get($uid);smoke_assert(is_array($state)&&count($state['board'])===25,'mines state failed');
+    $sq=$pdo->prepare('SELECT game_key,free_spins,storm_charge,multiplier_map_json,updated_at FROM user_game_states WHERE user_id=? AND game_key=?');$sq->execute([$uid,'mini-mines']);$exportState=cc_sanitize_game_state_for_export($sq->fetch()?:[]);$safeJson=(string)($exportState['multiplier_map_json']??'');$safeDecoded=json_decode($safeJson,true);smoke_assert(is_array($safeDecoded)&&!array_key_exists('board',$safeDecoded),'active Mines board leaked through export sanitizer');smoke_assert(($safeDecoded['round']??null)===$state['round'],'sanitized Mines export lost round id');echo "mines export redaction OK\n";
+    $safe=null;foreach($state['board'] as $i=>$mine){if(!$mine){$safe=(int)$i;break;}}smoke_assert($safe!==null,'no safe cell');$reveal=mini_mines_reveal($pdo,$uid,$safe);smoke_assert(in_array($reveal['state'],['active','cashed'],true),'mines reveal failed');if($reveal['state']==='active'){$cash=mini_mines_cashout($pdo,$uid);smoke_assert(($cash['state']??'')==='cashed'&&$cash['win']>0,'mines cashout failed');}echo "mines OK\n";
 
     $daily=daily_reward_claim($pdo,$uid);smoke_assert($daily['bonus']>0,'daily gift failed');$status=daily_reward_status($pdo,$uid);smoke_assert($status['available']===false,'daily duplicate guard failed');echo "daily OK\n";
     $favs=cc_toggle_favorite($uid,'fruit-fiesta');smoke_assert(in_array('fruit-fiesta',$favs,true),'favorite add failed');$favs=cc_toggle_favorite($uid,'fruit-fiesta');smoke_assert(!in_array('fruit-fiesta',$favs,true),'favorite remove failed');echo "favorites OK\n";
