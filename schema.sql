@@ -51,9 +51,20 @@ CREATE TABLE game_rounds (
   CONSTRAINT fk_round_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE request_idempotency (
+  user_id BIGINT UNSIGNED NOT NULL,
+  scope VARCHAR(120) NOT NULL,
+  request_id VARCHAR(80) NOT NULL,
+  response_json JSON NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, scope, request_id),
+  INDEX idx_request_idempotency_created (created_at),
+  CONSTRAINT fk_request_idempotency_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE schema_migrations (
   version VARCHAR(100) PRIMARY KEY,
   applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO schema_migrations(version) VALUES ('20260913_001_query_indexes');
+INSERT INTO schema_migrations(version) VALUES ('20260913_001_query_indexes'),('20260913_002_request_idempotency');
