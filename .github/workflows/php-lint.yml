@@ -84,9 +84,11 @@ jobs:
           PHP
       - name: Exercise upgrade migration path
         run: |
-          mysql -h127.0.0.1 -uroot -proot candyclub_test -e "DELETE FROM schema_migrations WHERE version='20260913_001_query_indexes'; ALTER TABLE game_rounds DROP INDEX idx_round_created, DROP INDEX idx_round_game_created; ALTER TABLE wallet_transactions DROP INDEX idx_wallet_user_type_ref;"
+          mysql -h127.0.0.1 -uroot -proot candyclub_test -e "DELETE FROM schema_migrations WHERE version IN ('20260913_001_query_indexes','20260913_002_request_idempotency'); DROP TABLE request_idempotency; ALTER TABLE game_rounds DROP INDEX idx_round_created, DROP INDEX idx_round_game_created; ALTER TABLE wallet_transactions DROP INDEX idx_wallet_user_type_ref;"
           php tools/migrate.php
           mysql -N -h127.0.0.1 -uroot -proot candyclub_test -e "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema=DATABASE() AND index_name IN ('idx_round_created','idx_round_game_created','idx_wallet_user_type_ref');" | grep -qx 3
+          mysql -N -h127.0.0.1 -uroot -proot candyclub_test -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='request_idempotency';" | grep -qx 1
+          mysql -N -h127.0.0.1 -uroot -proot candyclub_test -e "SELECT COUNT(*) FROM schema_migrations WHERE version IN ('20260913_001_query_indexes','20260913_002_request_idempotency');" | grep -qx 2
       - name: Run database integration smoke test
         run: php tools/integration_smoke.php
       - name: Run HTTP readiness smoke test
