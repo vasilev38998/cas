@@ -77,6 +77,6 @@ jobs:
         run: |
           mysql -h127.0.0.1 -uroot -proot candyclub_test -e "DELETE FROM schema_migrations WHERE version='20260913_001_query_indexes'; ALTER TABLE game_rounds DROP INDEX idx_round_created, DROP INDEX idx_round_game_created; ALTER TABLE wallet_transactions DROP INDEX idx_wallet_user_type_ref;"
           php tools/migrate.php
-          mysql -N -h127.0.0.1 -uroot -proot candyclub_test -e "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND index_name IN ('idx_round_created','idx_round_game_created','idx_wallet_user_type_ref');" | grep -qx 3
+          mysql -N -h127.0.0.1 -uroot -proot candyclub_test -e "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema=DATABASE() AND index_name IN ('idx_round_created','idx_round_game_created','idx_wallet_user_type_ref');" | grep -qx 3
       - name: Run database integration smoke test
         run: php tools/integration_smoke.php
